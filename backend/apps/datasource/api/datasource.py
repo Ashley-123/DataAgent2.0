@@ -288,7 +288,26 @@ async def upload_excel(session: SessionDep, file: UploadFile = File(...)):
         sheets = []
         engine = get_engine_conn()
         if filename.endswith(".csv"):
-            df = pd.read_csv(save_path, engine='c')
+            # 尝试多种编码读取 CSV 文件
+            encodings = ['utf-8', 'gbk', 'gb2312', 'gb18030', 'big5', 'latin-1', 'cp1252', 'iso-8859-1']
+            df = None
+            last_error = None
+
+            for encoding in encodings:
+                try:
+                    df = pd.read_csv(save_path, engine='c', encoding=encoding)
+                    break  # 成功读取，跳出循环
+                except (UnicodeDecodeError, UnicodeError) as e:
+                    last_error = e
+                    continue  # 尝试下一个编码
+                except Exception as e:
+                    # 其他错误（如文件格式错误），直接抛出
+                    raise HTTPException(400, f"Failed to read CSV file: {str(e)}")
+
+            if df is None:
+                raise HTTPException(400,
+                                    f"Failed to decode CSV file. Tried encodings: {', '.join(encodings)}. Last error: {str(last_error)}")
+
             tableName = f"sheet1_{hashlib.sha256(uuid.uuid4().bytes).hexdigest()[:10]}"
             sheets.append({"tableName": tableName, "tableComment": ""})
             insert_pg(df, tableName, engine)
