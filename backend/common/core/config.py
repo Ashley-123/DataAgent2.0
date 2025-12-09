@@ -45,11 +45,11 @@ class Settings(BaseSettings):
             self.FRONTEND_HOST
         ]
 
-    POSTGRES_SERVER: str = 'localhost'
-    POSTGRES_PORT: int = 5432
-    POSTGRES_USER: str = 'postgres'
-    POSTGRES_PASSWORD: str = "123456"
-    POSTGRES_DB: str = "sqlbot"
+    POSTGRES_SERVER: str = '172.16.1.61'
+    POSTGRES_PORT: int = 14475
+    POSTGRES_USER: str = 'bdcs'
+    POSTGRES_PASSWORD: str = "bdcs@20220329"
+    POSTGRES_DB: str = "hpt_test"
     SQLBOT_DB_URL: str = ''
     # SQLBOT_DB_URL: str = 'mysql+pymysql://root:Password123%40mysql@127.0.0.1:3306/sqlbot'
 
