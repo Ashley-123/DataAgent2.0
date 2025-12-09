@@ -649,6 +649,7 @@
       "bar": "条形图",
       "column": "柱状图",
       "line": "折线图",
+      "scatter":"散点图",
       "pie": "饼图"
     },
     "show_sql": "查看SQL",
