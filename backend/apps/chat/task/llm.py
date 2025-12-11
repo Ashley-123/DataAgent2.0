@@ -1291,6 +1291,100 @@ class LLMService:
             # end
             session_maker.remove()
 
+    def run_re_execute_sql_task_async(self, session: Session, sql: str):
+        """异步执行重新执行SQL的任务"""
+        self.future = executor.submit(self.run_re_execute_sql_task_cache, sql)
+
+    def run_re_execute_sql_task_cache(self, sql: str):
+        """缓存重新执行SQL的任务结果"""
+        for chunk in self.run_re_execute_sql_task(sql):
+            self.chunk_list.append(chunk)
+
+    def run_re_execute_sql_task(self, sql: str):
+        """重新执行SQL并继续后续流程（保存数据、生成图表等）"""
+        _session = None
+        try:
+            _session = session_maker()
+            
+            # 返回记录ID
+            yield 'data:' + orjson.dumps({'type': 'id', 'id': self.get_record().id}).decode() + '\n\n'
+            
+            # 保存新的SQL
+            sql = self.check_save_sql(session=_session, res=orjson.dumps({'success': True, 'sql': sql}).decode())
+            
+            # 格式化SQL
+            format_sql = sqlparse.format(sql, reindent=True)
+            yield 'data:' + orjson.dumps({'content': format_sql, 'type': 'sql'}).decode() + '\n\n'
+            
+            # 执行SQL
+            result = self.execute_sql(sql=sql)
+            
+            # 处理数据
+            _data = DataFormat.convert_large_numbers_in_object_array(result.get('data'))
+            result["data"] = _data
+            
+            # 保存SQL执行结果
+            self.save_sql_data(session=_session, data_obj=result)
+            yield 'data:' + orjson.dumps({'content': 'execute-success', 'type': 'sql-data'}).decode() + '\n\n'
+            
+            # 获取图表类型（从之前的记录中获取，如果有的话）
+            chart_type = None
+            if self.record.chart:
+                try:
+                    chart_config = orjson.loads(self.record.chart)
+                    chart_type = chart_config.get('type')
+                except Exception:
+                    pass
+            
+            # 生成图表
+            chart_res = self.generate_chart(_session, chart_type)
+            full_chart_text = ''
+            for chunk in chart_res:
+                full_chart_text += chunk.get('content')
+                yield 'data:' + orjson.dumps(
+                    {'content': chunk.get('content'), 'reasoning_content': chunk.get('reasoning_content'),
+                     'type': 'chart-result'}).decode() + '\n\n'
+            
+            yield 'data:' + orjson.dumps({'type': 'info', 'msg': 'chart generated'}).decode() + '\n\n'
+            
+            # 保存图表配置
+            SQLBotLogUtil.info(full_chart_text)
+            chart = self.check_save_chart(session=_session, res=full_chart_text)
+            SQLBotLogUtil.info(chart)
+            
+            # 返回图表配置
+            yield 'data:' + orjson.dumps(
+                {'content': orjson.dumps(chart).decode(), 'type': 'chart'}).decode() + '\n\n'
+            
+            # 完成
+            yield 'data:' + orjson.dumps({'type': 'finish'}).decode() + '\n\n'
+            
+            # 标记记录为完成
+            self.finish(_session)
+            
+        except Exception as e:
+            traceback.print_exc()
+            error_msg: str
+            if isinstance(e, SingleMessageError):
+                error_msg = str(e)
+            elif isinstance(e, SQLBotDBConnectionError):
+                error_msg = orjson.dumps(
+                    {'message': str(e), 'type': 'db-connection-err'}).decode()
+            elif isinstance(e, SQLBotDBError):
+                error_msg = orjson.dumps(
+                    {'message': 'Execute SQL Failed', 'traceback': str(e), 'type': 'exec-sql-err'}).decode()
+            else:
+                error_msg = orjson.dumps({'message': str(e), 'traceback': traceback.format_exc(limit=1)}).decode()
+            
+            if _session:
+                self.save_error(session=_session, message=error_msg)
+            
+            yield 'data:' + orjson.dumps({'content': error_msg, 'type': 'error'}).decode() + '\n\n'
+        finally:
+            if _session:
+                self.finish(_session)
+            session_maker.remove()
+
     def validate_history_ds(self, session: Session):
         _ds = self.ds
         if not self.current_assistant or self.current_assistant.type == 4:

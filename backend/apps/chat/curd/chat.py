@@ -20,12 +20,12 @@ def get_chat_record_by_id(session: SessionDep, record_id: int):
     record: ChatRecord | None = None
 
     stmt = select(ChatRecord.id, ChatRecord.question, ChatRecord.chat_id, ChatRecord.datasource, ChatRecord.engine_type,
-                  ChatRecord.ai_modal_id, ChatRecord.create_by).where(
+                  ChatRecord.ai_modal_id, ChatRecord.create_by, ChatRecord.sql).where(
         and_(ChatRecord.id == record_id))
     result = session.execute(stmt)
     for r in result:
         record = ChatRecord(id=r.id, question=r.question, chat_id=r.chat_id, datasource=r.datasource,
-                            engine_type=r.engine_type, ai_modal_id=r.ai_modal_id, create_by=r.create_by)
+                            engine_type=r.engine_type, ai_modal_id=r.ai_modal_id, create_by=r.create_by, sql=r.sql)
     return record
 
 def get_chat(session: SessionDep, chat_id: int) -> Chat:
