@@ -222,6 +222,15 @@ async def re_execute_sql(session: SessionDep, current_user: CurrentUser,
         # 设置新记录
         llm_service.set_record(new_record)
         
+        # 传递原始记录的图表配置（如果有）
+        original_chart_config = None
+        if record.chart:
+            try:
+                original_chart_config = orjson.loads(record.chart)
+            except Exception:
+                pass
+        llm_service.set_original_chart_config(original_chart_config)
+        
         # 确定要执行的SQL：如果用户提供了新SQL则使用新SQL，否则使用原始SQL
         sql_to_execute = request.sql if request.sql else record.sql
         if not sql_to_execute:

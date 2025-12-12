@@ -85,6 +85,7 @@ class LLMService:
 
     last_execute_sql_error: str = None
     articles_number: int = 4
+    original_chart_config: Optional[Dict[str, Any]] = None  # 添加：存储原始图表配置
 
     def __init__(self, session: Session, current_user: CurrentUser, chat_question: ChatQuestion,
                  current_assistant: Optional[CurrentAssistant] = None, no_reasoning: bool = False,
@@ -213,6 +214,10 @@ class LLMService:
 
     def set_record(self, record: ChatRecord):
         self.record = record
+
+    def set_original_chart_config(self, chart_config: Optional[Dict[str, Any]]):
+        """设置原始图表配置，用于重新执行SQL时复用"""
+        self.original_chart_config = chart_config
 
     def set_articles_number(self, articles_number: int):
         self.articles_number = articles_number
@@ -1349,12 +1354,74 @@ class LLMService:
             
             # 保存图表配置
             SQLBotLogUtil.info(full_chart_text)
-            chart = self.check_save_chart(session=_session, res=full_chart_text)
-            SQLBotLogUtil.info(chart)
+            chart = None
+            try:
+                chart = self.check_save_chart(session=_session, res=full_chart_text)
+                SQLBotLogUtil.info(chart)
+            except Exception as chart_error:
+                # 如果图表生成失败，使用原始记录的图表配置
+                SQLBotLogUtil.error(f"Chart parsing failed: {chart_error}")
+                traceback.print_exc()
+                
+                if self.original_chart_config:
+                    # 复用原始图表配置
+                    chart = self.original_chart_config.copy()
+                    
+                    # 根据新的SQL执行结果更新 columns
+                    data_columns = []
+                    if result.get('data') and len(result.get('data', [])) > 0:
+                        first_row = result.get('data')[0]
+                        for key in first_row.keys():
+                            # 检查是否已存在该列
+                            existing_column = None
+                            if chart.get('columns'):
+                                for col in chart.get('columns'):
+                                    if col.get('value', '').lower() == key.lower():
+                                        existing_column = col
+                                        break
+                            
+                            if existing_column:
+                                # 保留原始列名，只更新 value
+                                data_columns.append({
+                                    'name': existing_column.get('name', key),
+                                    'value': key.lower()
+                                })
+                            else:
+                                # 新列
+                                data_columns.append({
+                                    'name': key,
+                                    'value': key.lower()
+                                })
+                    else:
+                        # 如果没有数据，保持原始 columns
+                        data_columns = chart.get('columns', [])
+                    
+                    chart['columns'] = data_columns
+                    
+                    # 保存更新后的配置
+                    save_chart(session=_session, chart=orjson.dumps(chart).decode(), record_id=self.record.id)
+                else:
+                    # 如果没有原始配置，生成默认配置
+                    data_columns = []
+                    if result.get('data') and len(result.get('data', [])) > 0:
+                        first_row = result.get('data')[0]
+                        for key in first_row.keys():
+                            data_columns.append({
+                                'name': key,
+                                'value': key.lower()
+                            })
+                    
+                    chart = {
+                        'type': 'table',
+                        'title': self.chat_question.question if self.chat_question.question else '查询结果',
+                        'columns': data_columns
+                    }
+                    save_chart(session=_session, chart=orjson.dumps(chart).decode(), record_id=self.record.id)
             
-            # 返回图表配置
-            yield 'data:' + orjson.dumps(
-                {'content': orjson.dumps(chart).decode(), 'type': 'chart'}).decode() + '\n\n'
+            # 确保返回图表配置
+            if chart:
+                yield 'data:' + orjson.dumps(
+                    {'content': orjson.dumps(chart).decode(), 'type': 'chart'}).decode() + '\n\n'
             
             # 完成
             yield 'data:' + orjson.dumps({'type': 'finish'}).decode() + '\n\n'
