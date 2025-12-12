@@ -255,7 +255,7 @@ export const useAppearanceStore = defineStore('appearanceStore', {
       // }
       const obj = LicenseGenerator.getLicense()
       if (obj?.status !== 'valid') {
-        setCurrentColor('#1CBA90')
+        setCurrentColor('#f35e4b')
         document.title = 'Data Agent'
         setLinkIcon()
         return
@@ -263,7 +263,7 @@ export const useAppearanceStore = defineStore('appearanceStore', {
       const resData = await request.get('/system/appearance/ui')
       this.loaded = true
       if (!resData?.length) {
-        setCurrentColor('#1CBA90')
+        setCurrentColor('#f35e4b')
         setLinkIcon()
         return
       }

@@ -232,6 +232,8 @@
                     @finish="onChartAnswerFinish"
                     @error="onChartAnswerError"
                     @stop="onChatStop"
+                    @data-loading-start="onDataLoadingStart"
+                    @data-loading-end="onDataLoadingEnd"
                   >
                     <ErrorInfo :error="message.record?.error" class="error-container" />
                     <template #tool>
@@ -753,6 +755,15 @@ function onChatStop() {
   isTyping.value = false
   console.debug('onChatStop')
 }
+//开始加载SQL更新动画
+function onDataLoadingStart() {
+  isTyping.value = true
+}
+//结束新SQL动画
+function onDataLoadingEnd() {
+  isTyping.value = false
+}
+
 const assistantPrepareSend = async () => {
   if (
     !isCompletePage.value &&

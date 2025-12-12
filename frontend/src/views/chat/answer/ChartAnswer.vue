@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import BaseAnswer from './BaseAnswer.vue'
 import { Chat, chatApi, ChatInfo, type ChatMessage, ChatRecord, questionApi } from '@/api/chat.ts'
+import { ElMessage } from 'element-plus-secondary'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import ChartBlock from '@/views/chat/chat-block/ChartBlock.vue'
 
@@ -29,6 +30,8 @@ const emits = defineEmits([
   'error',
   'stop',
   'scrollBottom',
+  'data-loading-start',
+  'data-loading-end',
   'update:loading',
   'update:chatList',
   'update:currentChat',
@@ -260,6 +263,150 @@ onMounted(() => {
 })
 
 defineExpose({ sendMessage, index: () => index.value, stop })
+const reExecuteSQL = async (params: { recordId: number; sql: string }) => {
+  
+  emits('data-loading-start')
+  
+  stopFlag.value = false
+  _loading.value = true
+  
+  const currentRecord = _currentChat.value.records.find(r => r.id === params.recordId)
+  if (!currentRecord) {
+    console.error('❌ [ChartAnswer] 未找到记录:', params.recordId)
+    _loading.value = false
+    return
+  }
+
+  const recordIndex = _currentChat.value.records.findIndex(r => r.id === params.recordId)
+
+  try {
+    const controller: AbortController = new AbortController()
+    
+    const response = await chatApi.reExecuteSql(params.recordId, params.sql, controller)
+    
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder('utf-8')
+
+    let sql_answer = ''
+    let chart_answer = ''
+    let tempResult = ''
+
+    while (true) {
+      if (stopFlag.value) {
+        controller.abort()
+        break
+      }
+
+      const { done, value } = await reader.read()
+      
+      if (done) {
+        _loading.value = false
+       
+        break
+      }
+
+      let chunk = decoder.decode(value, { stream: true })
+      
+      tempResult += chunk
+      
+      const split = tempResult.match(/data:.*}\n\n/g)
+      
+      if (split) {
+        chunk = split.join('')
+        tempResult = tempResult.replace(chunk, '')
+      } else {
+        continue
+      }
+      
+      if (chunk && chunk.startsWith('data:{')) {
+        if (split) {
+          for (const str of split) {
+            let data
+            try {
+              data = JSON.parse(str.replace('data:{', '{'))
+            } catch (err) {
+              throw err
+            }
+
+            if (data.code && data.code !== 200) {
+              ElMessage({
+                message: data.msg,
+                type: 'error',
+                showClose: true,
+              })
+              _loading.value = false
+              return
+            }
+
+            switch (data.type) {
+              case 'id':
+                if (data.id) {
+                  currentRecord.id = data.id
+                  _currentChat.value.records[recordIndex].id = data.id
+                  await reloadCurrentRecord(data.id)
+                }
+                break
+              
+              case 'info':
+                console.info(data.msg)
+                break
+              
+              case 'sql-result':
+                sql_answer += data.reasoning_content
+                _currentChat.value.records[recordIndex].sql_answer = sql_answer
+                break
+              
+              case 'sql':
+                _currentChat.value.records[recordIndex].sql = data.content
+                break
+              
+              case 'sql-data':
+                break
+              
+              case 'chart-result':
+                chart_answer += data.reasoning_content
+                _currentChat.value.records[recordIndex].chart_answer = chart_answer
+                break
+              
+              case 'chart':
+                _currentChat.value.records[recordIndex].chart = data.content
+                break
+              
+              case 'finish':
+                reloadCurrentRecord(currentRecord.id)
+                
+                break
+            }
+            
+            await nextTick()
+          }
+        }
+      }
+
+    }
+  } catch (error) {
+    console.error('❌ [ChartAnswer] 重新执行SQL失败:', error)
+    if (!currentRecord.error) {
+      currentRecord.error = ''
+    }
+    if (currentRecord.error.trim().length !== 0) {
+      currentRecord.error = currentRecord.error + '\n'
+    }
+    currentRecord.error = currentRecord.error + 'Error:' + error
+    _currentChat.value.records[recordIndex].error = currentRecord.error
+    emits('error')
+  } finally {
+    _loading.value = false
+    emits('scrollBottom')
+  }
+}
+async function reloadCurrentRecord(recordId: number|undefined) {
+  try {
+    await getChatData(recordId)
+  } finally {
+    emits('data-loading-end')
+  }
+}
 </script>
 
 <template>
@@ -269,6 +416,8 @@ defineExpose({ sendMessage, index: () => index.value, stop })
       :message="message"
       :record-id="recordId"
       :loading-data="loadingData"
+      @re-execute-sql="reExecuteSQL"
+
     />
     <slot></slot>
     <template #tool>
@@ -280,4 +429,5 @@ defineExpose({ sendMessage, index: () => index.value, stop })
   </BaseAnswer>
 </template>
 
-<style scoped lang="less"></style>
+<style scoped lang="less">
+</style>

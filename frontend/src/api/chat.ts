@@ -344,4 +344,8 @@ export const chatApi = {
       responseType: 'blob',
       requestOptions: { customError: true },
     }),
+    //sql语句新接口
+  reExecuteSql: (record_id: number | undefined, sql?: string, controller?: AbortController) => {
+    return request.fetchStream(`/chat/record/${record_id}/re_execute_sql`, { sql }, controller)
+  },
 }
