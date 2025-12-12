@@ -509,6 +509,36 @@ def save_analysis_predict_record(session: SessionDep, base_record: ChatRecord, a
     return result
 
 
+def save_re_execute_sql_record(session: SessionDep, base_record: ChatRecord) -> ChatRecord:
+    """创建新记录用于保存重新执行的SQL结果
+    
+    Args:
+        session: Database session
+        base_record: 原始记录
+        
+    Returns:
+        新创建的ChatRecord
+    """
+    record = ChatRecord()
+    record.question = base_record.question
+    record.chat_id = base_record.chat_id
+    record.datasource = base_record.datasource
+    record.engine_type = base_record.engine_type
+    record.ai_modal_id = base_record.ai_modal_id
+    record.create_time = datetime.datetime.now()
+    record.create_by = base_record.create_by
+
+    result = ChatRecord(**record.model_dump())
+
+    session.add(record)
+    session.flush()
+    session.refresh(record)
+    result.id = record.id
+    session.commit()
+
+    return result
+
+
 def start_log(session: SessionDep, ai_modal_id: int, ai_modal_name: str, operate: OperationEnum, record_id: int,
               full_message: list[dict]) -> ChatLog:
     log = ChatLog(type=TypeEnum.CHAT, operate=operate, pid=record_id, ai_modal_id=ai_modal_id, base_modal=ai_modal_name,

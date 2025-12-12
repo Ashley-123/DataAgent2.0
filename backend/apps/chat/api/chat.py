@@ -11,7 +11,7 @@ from sqlalchemy import and_, select
 
 from apps.chat.curd.chat import list_chats, get_chat_with_records, create_chat, rename_chat, \
     delete_chat, get_chat_chart_data, get_chat_predict_data, get_chat_with_records_with_data, get_chat_record_by_id, \
-    format_json_data, format_json_list_data, get_chart_config, list_recent_questions
+    format_json_data, format_json_list_data, get_chart_config, list_recent_questions, save_re_execute_sql_record
 from apps.chat.models.chat_model import CreateChat, ChatRecord, RenameChat, ChatQuestion, AxisObj, ReExecuteSqlRequest
 from apps.chat.task.llm import LLMService
 from common.core.deps import CurrentAssistant, SessionDep, CurrentUser, Trans
@@ -216,8 +216,11 @@ async def re_execute_sql(session: SessionDep, current_user: CurrentUser,
             embedding=False
         )
         
-        # 设置记录
-        llm_service.set_record(record)
+        # 创建新记录用于保存重新执行的SQL结果（保留原始记录不变）
+        new_record = save_re_execute_sql_record(session, record)
+        
+        # 设置新记录
+        llm_service.set_record(new_record)
         
         # 确定要执行的SQL：如果用户提供了新SQL则使用新SQL，否则使用原始SQL
         sql_to_execute = request.sql if request.sql else record.sql
