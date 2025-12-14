@@ -649,10 +649,14 @@
       "bar": "Bar",
       "column": "Column",
       "line": "Line",
-      "scatter":"Scatter",
       "pie": "Pie"
     },
     "show_sql": "View SQL",
+    "edit_sql": "Edit SQL",
+    "execute_sql": "Execute New SQL",
+    "save_sql": "Save SQL",
+    "cancel_sql": "Cancel Edit",
+
     "export_to": "Export As",
     "excel": "Excel",
     "picture": "Image",

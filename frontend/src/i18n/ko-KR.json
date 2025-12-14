@@ -650,9 +650,14 @@
       "column": "세로 막대 차트",
       "line": "선 차트",
       "pie": "원형 차트",
-      "scatter":"산점도"
+      "scatter": "산점도 차트"
     },
     "show_sql": "SQL 보기",
+    "edit_sql": "SQL 편집",
+    "execute_sql": "새 SQL 실행",
+    "save_sql": "SQL 저장",
+    "cancel_sql": "편집 취소",
+
     "export_to": "다음으로 내보내기",
     "excel": "Excel",
     "picture": "이미지",

@@ -49,7 +49,11 @@ const { copy } = useClipboard({ legacy: true })
 const loading = ref<boolean>(false)
 const { t } = useI18n()
 const addViewRef = ref(null)
-const emits = defineEmits(['exitFullScreen'])
+// const emits = defineEmits(['exitFullScreen'])
+const emits = defineEmits<{
+  'exitFullScreen': []
+  're-execute-sql': [params: { recordId: number; sql: string }]
+}>()
 
 const dataObject = computed<{
   fields: Array<string>
@@ -215,6 +219,11 @@ const sqlShow = ref(false)
 
 function showSql() {
   sqlShow.value = true
+}
+function handleReExecuteSQL(params: { recordId: number; sql: string }) {
+  // 将事件向上传递给父组件 ChartAnswer
+  emits('re-execute-sql', params)
+  
 }
 
 function addToDashboard() {
@@ -521,8 +530,10 @@ watch(
       <div class="sql-block">
         <SQLComponent
           v-if="message.record?.sql"
-          :sql="message.record?.sql"
+          v-model:sql="message.record.sql"
+          :record-id="message.record?.id"
           style="margin-top: 12px"
+          @re-execute-sql="handleReExecuteSQL"
         />
         <el-button v-if="message.record?.sql" circle class="input-icon" @click="copyText">
           <el-icon size="16">
