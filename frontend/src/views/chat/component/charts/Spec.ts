@@ -1,6 +1,5 @@
-import { BaseG2Chart } from '@/views/chat/component/BaseG2Chart.ts'
-import type { ChartAxis, ChartData } from '@/views/chat/component/BaseChart.ts'
-import type { G2Spec } from '@antv/g2'
+import { BaseG2Chart } from '@/views/chat/component/BaseG2Chart'
+import type { ChartAxis, ChartData } from '@/views/chat/component/BaseChart'
 
 export class Spec extends BaseG2Chart {
   constructor(id: string) {
@@ -13,14 +12,10 @@ export class Spec extends BaseG2Chart {
   }
 
   render() {
-    // Expect full G2 options stored in this.options
-    const options = (this.options || {}) as G2Spec
-    // Merge base chart defaults with provided options, user options take precedence
-    const merged: G2Spec = {
-      ...this.chart.options(),
-      ...options,
-    }
-    this.chart.options(merged)
+    // Expect full G2 options stored in this.options; pass through directly
+    const options = (this.options || {}) as unknown
+    // Bypass strict typing to allow any valid G2 spec tree
+    this.chart.options(options as any)
     super.render()
   }
 }

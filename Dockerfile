@@ -60,11 +60,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # configure npm
 RUN npm config set fund false \
     && npm config set audit false \
-    && npm config set progress false
+    && npm config set progress false \
+    && npm config set unsafe-perm true
 
 COPY g2-ssr/app.js g2-ssr/package.json /app/
 COPY g2-ssr/charts/* /app/charts/
-RUN npm install
+RUN npm install --build-from-source
 
 # Runtime stage
 FROM --platform=${BUILDPLATFORM} registry.cn-qingdao.aliyuncs.com/dataease/sqlbot-python-pg:latest
