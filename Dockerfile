@@ -23,6 +23,8 @@ ENV PATH="${APP_HOME}/.venv/bin:$PATH"
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV DEBIAN_FRONTEND=noninteractive
+ARG UV_HTTP_TIMEOUT=300
+ENV UV_HTTP_TIMEOUT=${UV_HTTP_TIMEOUT}
 
 # Create necessary directories
 RUN mkdir -p ${APP_HOME} ${UI_HOME}
@@ -58,11 +60,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # configure npm
 RUN npm config set fund false \
     && npm config set audit false \
-    && npm config set progress false
+    && npm config set progress false \
+    && npm config set unsafe-perm true
 
 COPY g2-ssr/app.js g2-ssr/package.json /app/
 COPY g2-ssr/charts/* /app/charts/
-RUN npm install
+RUN npm install --build-from-source
 
 # Runtime stage
 FROM --platform=${BUILDPLATFORM} registry.cn-qingdao.aliyuncs.com/dataease/sqlbot-python-pg:latest

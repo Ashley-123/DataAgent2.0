@@ -17,18 +17,20 @@ const { t } = useI18n()
 
 const chartObject = computed<{
   type: ChartTypes
-  title: string
-  axis: {
-    x: { name: string; value: string }
-    y: { name: string; value: string }
-    series: { name: string; value: string }
+  title?: string
+  axis?: {
+    x?: { name: string; value: string }
+    y?: { name: string; value: string }
+    series?: { name: string; value: string }
   }
-  columns: Array<{ name: string; value: string }>
+  columns?: Array<{ name: string; value: string }>
+  // for 'spec' charts
+  options?: any
 }>(() => {
   if (props.message?.record?.chart) {
     return JSON.parse(props.message.record.chart)
   }
-  return {}
+  return {} as any
 })
 
 const xAxis = computed(() => {
@@ -94,6 +96,7 @@ defineExpose({
       :y="yAxis"
       :series="series"
       :data="data"
+      :options="chartObject?.options"
     />
     <el-empty v-else :description="loadingData ? t('chat.loading_data') : t('chat.no_data')" />
   </div>

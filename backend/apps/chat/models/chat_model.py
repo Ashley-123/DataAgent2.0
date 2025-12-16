@@ -300,3 +300,7 @@ class McpAssistant(BaseModel):
     url: str = Body(description='第三方数据接口')
     authorization: str = Body(description='第三方接口凭证')
     stream: Optional[bool] = Body(description='是否流式输出，默认为true开启, 关闭false则返回JSON对象', default=True)
+
+
+class ReExecuteSqlRequest(BaseModel):
+    sql: Optional[str] = None  # 如果为空，则使用原始记录的SQL

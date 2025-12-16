@@ -1,6 +1,9 @@
 services:
   sqlbot:
-    image: dataease/sqlbot
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: sqlbot:develop
     container_name: sqlbot
     restart: always
     privileged: true

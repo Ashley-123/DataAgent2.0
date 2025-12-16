@@ -11,6 +11,7 @@ import ICON_COLUMN from '@/assets/svg/chart/icon_dashboard_outlined.svg'
 import ICON_LINE from '@/assets/svg/chart/icon_chart-line.svg'
 import ICON_PIE from '@/assets/svg/chart/icon_pie_outlined.svg'
 import ICON_TABLE from '@/assets/svg/chart/icon_form_outlined.svg'
+import ICON_SCATTER from '@/assets/svg/chart/icon_scatter.svg'
 import icon_sql_outlined from '@/assets/svg/icon_sql_outlined.svg'
 import icon_export_outlined from '@/assets/svg/icon_export_outlined.svg'
 import icon_file_image_colorful from '@/assets/svg/icon_file-image_colorful.svg'
@@ -48,7 +49,11 @@ const { copy } = useClipboard({ legacy: true })
 const loading = ref<boolean>(false)
 const { t } = useI18n()
 const addViewRef = ref(null)
-const emits = defineEmits(['exitFullScreen'])
+// const emits = defineEmits(['exitFullScreen'])
+const emits = defineEmits<{
+  'exitFullScreen': []
+  're-execute-sql': [params: { recordId: number; sql: string }]
+}>()
 
 const dataObject = computed<{
   fields: Array<string>
@@ -164,6 +169,11 @@ const chartTypeList = computed(() => {
           value: 'line',
           name: t('chat.chart_type.line'),
           icon: ICON_LINE,
+        }),
+        _list.push({
+          value: 'scatter',
+          name: t('chat.chart_type.scatter'),
+          icon: ICON_SCATTER,
         })
         break
       case 'pie':
@@ -209,6 +219,11 @@ const sqlShow = ref(false)
 
 function showSql() {
   sqlShow.value = true
+}
+function handleReExecuteSQL(params: { recordId: number; sql: string }) {
+  // 将事件向上传递给父组件 ChartAnswer
+  emits('re-execute-sql', params)
+  
 }
 
 function addToDashboard() {
@@ -515,8 +530,10 @@ watch(
       <div class="sql-block">
         <SQLComponent
           v-if="message.record?.sql"
-          :sql="message.record?.sql"
+          v-model:sql="message.record.sql"
+          :record-id="message.record?.id"
           style="margin-top: 12px"
+          @re-execute-sql="handleReExecuteSQL"
         />
         <el-button v-if="message.record?.sql" circle class="input-icon" @click="copyText">
           <el-icon size="16">

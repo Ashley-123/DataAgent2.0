@@ -20,12 +20,12 @@ def get_chat_record_by_id(session: SessionDep, record_id: int):
     record: ChatRecord | None = None
 
     stmt = select(ChatRecord.id, ChatRecord.question, ChatRecord.chat_id, ChatRecord.datasource, ChatRecord.engine_type,
-                  ChatRecord.ai_modal_id, ChatRecord.create_by).where(
+                  ChatRecord.ai_modal_id, ChatRecord.create_by, ChatRecord.sql).where(
         and_(ChatRecord.id == record_id))
     result = session.execute(stmt)
     for r in result:
         record = ChatRecord(id=r.id, question=r.question, chat_id=r.chat_id, datasource=r.datasource,
-                            engine_type=r.engine_type, ai_modal_id=r.ai_modal_id, create_by=r.create_by)
+                            engine_type=r.engine_type, ai_modal_id=r.ai_modal_id, create_by=r.create_by, sql=r.sql)
     return record
 
 def get_chat(session: SessionDep, chat_id: int) -> Chat:
@@ -497,6 +497,36 @@ def save_analysis_predict_record(session: SessionDep, base_record: ChatRecord, a
         record.analysis_record_id = base_record.id
     elif action_type == 'predict':
         record.predict_record_id = base_record.id
+
+    result = ChatRecord(**record.model_dump())
+
+    session.add(record)
+    session.flush()
+    session.refresh(record)
+    result.id = record.id
+    session.commit()
+
+    return result
+
+
+def save_re_execute_sql_record(session: SessionDep, base_record: ChatRecord) -> ChatRecord:
+    """创建新记录用于保存重新执行的SQL结果
+    
+    Args:
+        session: Database session
+        base_record: 原始记录
+        
+    Returns:
+        新创建的ChatRecord
+    """
+    record = ChatRecord()
+    record.question = base_record.question
+    record.chat_id = base_record.chat_id
+    record.datasource = base_record.datasource
+    record.engine_type = base_record.engine_type
+    record.ai_modal_id = base_record.ai_modal_id
+    record.create_time = datetime.datetime.now()
+    record.create_by = base_record.create_by
 
     result = ChatRecord(**record.model_dump())
 
