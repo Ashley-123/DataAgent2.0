@@ -649,10 +649,15 @@
       "bar": "条形图",
       "column": "柱状图",
       "line": "折线图",
-      "scatter":"散点图",
-      "pie": "饼图"
+      "pie": "饼图",
+      "scatter":"散点图"
     },
     "show_sql": "查看SQL",
+    "edit_sql": "编辑SQL",
+    "execute_sql": "执行新SQL",
+    "save_sql": "保存SQL",
+    "cancel_sql": "取消编辑",
+
     "export_to": "导出为",
     "excel": "Excel",
     "picture": "图片",

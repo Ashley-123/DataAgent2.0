@@ -85,6 +85,7 @@ class LLMService:
 
     last_execute_sql_error: str = None
     articles_number: int = 4
+    original_chart_config: Optional[Dict[str, Any]] = None  # 添加：存储原始图表配置
 
     def __init__(self, session: Session, current_user: CurrentUser, chat_question: ChatQuestion,
                  current_assistant: Optional[CurrentAssistant] = None, no_reasoning: bool = False,
@@ -213,6 +214,10 @@ class LLMService:
 
     def set_record(self, record: ChatRecord):
         self.record = record
+
+    def set_original_chart_config(self, chart_config: Optional[Dict[str, Any]]):
+        """设置原始图表配置，用于重新执行SQL时复用"""
+        self.original_chart_config = chart_config
 
     def set_articles_number(self, articles_number: int):
         self.articles_number = articles_number
@@ -1289,6 +1294,162 @@ class LLMService:
             yield 'data:' + orjson.dumps({'content': error_msg, 'type': 'error'}).decode() + '\n\n'
         finally:
             # end
+            session_maker.remove()
+
+    def run_re_execute_sql_task_async(self, session: Session, sql: str):
+        """异步执行重新执行SQL的任务"""
+        self.future = executor.submit(self.run_re_execute_sql_task_cache, sql)
+
+    def run_re_execute_sql_task_cache(self, sql: str):
+        """缓存重新执行SQL的任务结果"""
+        for chunk in self.run_re_execute_sql_task(sql):
+            self.chunk_list.append(chunk)
+
+    def run_re_execute_sql_task(self, sql: str):
+        """重新执行SQL并继续后续流程（保存数据、生成图表等）"""
+        _session = None
+        try:
+            _session = session_maker()
+            
+            # 返回记录ID
+            yield 'data:' + orjson.dumps({'type': 'id', 'id': self.get_record().id}).decode() + '\n\n'
+            
+            # 保存新的SQL
+            sql = self.check_save_sql(session=_session, res=orjson.dumps({'success': True, 'sql': sql}).decode())
+            
+            # 格式化SQL
+            format_sql = sqlparse.format(sql, reindent=True)
+            yield 'data:' + orjson.dumps({'content': format_sql, 'type': 'sql'}).decode() + '\n\n'
+            
+            # 执行SQL
+            result = self.execute_sql(sql=sql)
+            
+            # 处理数据
+            _data = DataFormat.convert_large_numbers_in_object_array(result.get('data'))
+            result["data"] = _data
+            
+            # 保存SQL执行结果
+            self.save_sql_data(session=_session, data_obj=result)
+            yield 'data:' + orjson.dumps({'content': 'execute-success', 'type': 'sql-data'}).decode() + '\n\n'
+            
+            # 获取图表类型（从之前的记录中获取，如果有的话）
+            chart_type = None
+            if self.record.chart:
+                try:
+                    chart_config = orjson.loads(self.record.chart)
+                    chart_type = chart_config.get('type')
+                except Exception:
+                    pass
+            
+            # 生成图表
+            chart_res = self.generate_chart(_session, chart_type)
+            full_chart_text = ''
+            for chunk in chart_res:
+                full_chart_text += chunk.get('content')
+                yield 'data:' + orjson.dumps(
+                    {'content': chunk.get('content'), 'reasoning_content': chunk.get('reasoning_content'),
+                     'type': 'chart-result'}).decode() + '\n\n'
+            
+            yield 'data:' + orjson.dumps({'type': 'info', 'msg': 'chart generated'}).decode() + '\n\n'
+            
+            # 保存图表配置
+            SQLBotLogUtil.info(full_chart_text)
+            chart = None
+            try:
+                chart = self.check_save_chart(session=_session, res=full_chart_text)
+                SQLBotLogUtil.info(chart)
+            except Exception as chart_error:
+                # 如果图表生成失败，使用原始记录的图表配置
+                SQLBotLogUtil.error(f"Chart parsing failed: {chart_error}")
+                traceback.print_exc()
+                
+                if self.original_chart_config:
+                    # 复用原始图表配置
+                    chart = self.original_chart_config.copy()
+                    
+                    # 根据新的SQL执行结果更新 columns
+                    data_columns = []
+                    if result.get('data') and len(result.get('data', [])) > 0:
+                        first_row = result.get('data')[0]
+                        for key in first_row.keys():
+                            # 检查是否已存在该列
+                            existing_column = None
+                            if chart.get('columns'):
+                                for col in chart.get('columns'):
+                                    if col.get('value', '').lower() == key.lower():
+                                        existing_column = col
+                                        break
+                            
+                            if existing_column:
+                                # 保留原始列名，只更新 value
+                                data_columns.append({
+                                    'name': existing_column.get('name', key),
+                                    'value': key.lower()
+                                })
+                            else:
+                                # 新列
+                                data_columns.append({
+                                    'name': key,
+                                    'value': key.lower()
+                                })
+                    else:
+                        # 如果没有数据，保持原始 columns
+                        data_columns = chart.get('columns', [])
+                    
+                    chart['columns'] = data_columns
+                    
+                    # 保存更新后的配置
+                    save_chart(session=_session, chart=orjson.dumps(chart).decode(), record_id=self.record.id)
+                else:
+                    # 如果没有原始配置，生成默认配置
+                    data_columns = []
+                    if result.get('data') and len(result.get('data', [])) > 0:
+                        first_row = result.get('data')[0]
+                        for key in first_row.keys():
+                            data_columns.append({
+                                'name': key,
+                                'value': key.lower()
+                            })
+                    
+                    chart = {
+                        'type': 'table',
+                        'title': self.chat_question.question if self.chat_question.question else '查询结果',
+                        'columns': data_columns
+                    }
+                    save_chart(session=_session, chart=orjson.dumps(chart).decode(), record_id=self.record.id)
+            
+            # 确保返回图表配置
+            if chart:
+                yield 'data:' + orjson.dumps(
+                    {'content': orjson.dumps(chart).decode(), 'type': 'chart'}).decode() + '\n\n'
+            
+            # 完成
+            yield 'data:' + orjson.dumps({'type': 'finish'}).decode() + '\n\n'
+            
+            # 标记记录为完成
+            self.finish(_session)
+            
+        except Exception as e:
+            traceback.print_exc()
+            error_msg: str
+            if isinstance(e, SingleMessageError):
+                error_msg = str(e)
+            elif isinstance(e, SQLBotDBConnectionError):
+                error_msg = orjson.dumps(
+                    {'message': str(e), 'type': 'db-connection-err'}).decode()
+            elif isinstance(e, SQLBotDBError):
+                error_msg = orjson.dumps(
+                    {'message': 'Execute SQL Failed', 'traceback': str(e), 'type': 'exec-sql-err'}).decode()
+            else:
+                error_msg = orjson.dumps({'message': str(e), 'traceback': traceback.format_exc(limit=1)}).decode()
+            
+            if _session:
+                self.save_error(session=_session, message=error_msg)
+            
+            yield 'data:' + orjson.dumps({'content': error_msg, 'type': 'error'}).decode() + '\n\n'
+        finally:
+            if _session:
+                self.finish(_session)
             session_maker.remove()
 
     def validate_history_ds(self, session: Session):

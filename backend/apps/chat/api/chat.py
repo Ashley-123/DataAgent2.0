@@ -11,8 +11,8 @@ from sqlalchemy import and_, select
 
 from apps.chat.curd.chat import list_chats, get_chat_with_records, create_chat, rename_chat, \
     delete_chat, get_chat_chart_data, get_chat_predict_data, get_chat_with_records_with_data, get_chat_record_by_id, \
-    format_json_data, format_json_list_data, get_chart_config, list_recent_questions
-from apps.chat.models.chat_model import CreateChat, ChatRecord, RenameChat, ChatQuestion, AxisObj
+    format_json_data, format_json_list_data, get_chart_config, list_recent_questions, save_re_execute_sql_record
+from apps.chat.models.chat_model import CreateChat, ChatRecord, RenameChat, ChatQuestion, AxisObj, ReExecuteSqlRequest
 from apps.chat.task.llm import LLMService
 from common.core.deps import CurrentAssistant, SessionDep, CurrentUser, Trans
 from common.utils.data_format import DataFormat
@@ -169,6 +169,92 @@ async def stream_sql(session: SessionDep, current_user: CurrentUser, request_que
     return StreamingResponse(llm_service.await_result(), media_type="text/event-stream")
 
 
+@router.post("/record/{chat_record_id}/re_execute_sql")
+async def re_execute_sql(session: SessionDep, current_user: CurrentUser, 
+                         chat_record_id: int, request: ReExecuteSqlRequest,
+                         current_assistant: CurrentAssistant):
+    """重新执行用户修改后的SQL语句
+    
+    Args:
+        session: Database session
+        current_user: CurrentUser
+        chat_record_id: Chat record ID
+        request: 包含修改后的SQL语句
+        current_assistant: CurrentAssistant
+        
+    Returns:
+        Streaming response with execution results
+    """
+    try:
+        # 获取原始记录
+        record = get_chat_record_by_id(session, chat_record_id)
+        if not record:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Chat record with id {chat_record_id} not found"
+            )
+        
+        # 验证用户权限
+        if record.create_by != current_user.id:
+            raise HTTPException(
+                status_code=403,
+                detail="You don't have permission to access this record"
+            )
+        
+        # 创建 ChatQuestion 对象
+        request_question = ChatQuestion(
+            chat_id=record.chat_id,
+            question=record.question if record.question else ''
+        )
+        
+        # 创建 LLMService 实例
+        llm_service = await LLMService.create(
+            session, 
+            current_user, 
+            request_question, 
+            current_assistant,
+            embedding=False
+        )
+        
+        # 创建新记录用于保存重新执行的SQL结果（保留原始记录不变）
+        new_record = save_re_execute_sql_record(session, record)
+        
+        # 设置新记录
+        llm_service.set_record(new_record)
+        
+        # 传递原始记录的图表配置（如果有）
+        original_chart_config = None
+        if record.chart:
+            try:
+                original_chart_config = orjson.loads(record.chart)
+            except Exception:
+                pass
+        llm_service.set_original_chart_config(original_chart_config)
+        
+        # 确定要执行的SQL：如果用户提供了新SQL则使用新SQL，否则使用原始SQL
+        sql_to_execute = request.sql if request.sql else record.sql
+        if not sql_to_execute:
+            raise HTTPException(
+                status_code=400,
+                detail="SQL is required. Please provide SQL in request body or ensure the original record has SQL."
+            )
+        
+        # 异步执行重新执行SQL的任务
+        llm_service.run_re_execute_sql_task_async(session, sql_to_execute)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        
+        def _err(_e: Exception):
+            yield 'data:' + orjson.dumps({'content': str(_e), 'type': 'error'}).decode() + '\n\n'
+        
+        return StreamingResponse(_err(e), media_type="text/event-stream")
+    
+    return StreamingResponse(llm_service.await_result(), media_type="text/event-stream")
+
+
 @router.post("/record/{chat_record_id}/{action_type}")
 async def analysis_or_predict(session: SessionDep, current_user: CurrentUser, chat_record_id: int, action_type: str,
                               current_assistant: CurrentAssistant):
@@ -281,3 +367,4 @@ async def export_excel(session: SessionDep, chat_record_id: int, trans: Trans):
 
     result = await asyncio.to_thread(inner)
     return StreamingResponse(result, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+
