@@ -34,6 +34,7 @@ wlist = [
     "/system/assistant/app/*",
     "/system/assistant/picture/*",
     "/datasource/uploadExcel",
+    "/datasource/uploadExcelBatch",
     "/system/authentication/platform/status",
     "/system/authentication/login/*",
     "/system/authentication/sso/*",
