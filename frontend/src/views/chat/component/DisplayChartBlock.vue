@@ -94,6 +94,7 @@ defineExpose({
       :y="yAxis"
       :series="series"
       :data="data"
+      :options="chartObject?.options"
     />
     <el-empty v-else :description="loadingData ? t('chat.loading_data') : t('chat.no_data')" />
   </div>

@@ -50,7 +50,18 @@ function getOptions(type, axis, data) {
 
 // 创建 Chart 和配置
 async function GenerateCharts(obj) {
-    const options = getOptions(obj.type, JSON.parse(obj.axis), JSON.parse(obj.data));
+    // Spec直通：当传入spec时，直接使用完整G2配置
+    let options;
+    if (obj && obj.type === 'spec' && obj.spec) {
+        try {
+            options = typeof obj.spec === 'string' ? JSON.parse(obj.spec) : obj.spec;
+        } catch (e) {
+            // 回退：若解析失败，返回基础配置避免崩溃
+            options = {};
+        }
+    } else {
+        options = getOptions(obj.type, JSON.parse(obj.axis), JSON.parse(obj.data));
+    }
     const chart = await createChart(options);
     // 导出
     chart.exportToFile(obj.path || 'chart');

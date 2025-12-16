@@ -1341,31 +1341,40 @@ def execute_sql_with_db(db: SQLDatabase, sql: str) -> str:
 def request_picture(chat_id: int, record_id: int, chart: dict, data: dict):
     file_name = f'c_{chat_id}_r_{record_id}'
 
-    columns = chart.get('columns') if chart.get('columns') else []
-    x = None
-    y = None
-    series = None
-    if chart.get('axis'):
-        x = chart.get('axis').get('x')
-        y = chart.get('axis').get('y')
-        series = chart.get('axis').get('series')
+    # Spec直通：当chart.type为spec时，直接透传完整G2 options
+    if chart.get('type') == 'spec' and chart.get('options') is not None:
+        request_obj = {
+            "path": os.path.join(settings.MCP_IMAGE_PATH, file_name),
+            "type": "spec",
+            # 透传完整options（字符串化，服务端再JSON解析）
+            "spec": orjson.dumps(chart.get('options')).decode(),
+        }
+    else:
+        columns = chart.get('columns') if chart.get('columns') else []
+        x = None
+        y = None
+        series = None
+        if chart.get('axis'):
+            x = chart.get('axis').get('x')
+            y = chart.get('axis').get('y')
+            series = chart.get('axis').get('series')
 
-    axis = []
-    for v in columns:
-        axis.append({'name': v.get('name'), 'value': v.get('value')})
-    if x:
-        axis.append({'name': x.get('name'), 'value': x.get('value'), 'type': 'x'})
-    if y:
-        axis.append({'name': y.get('name'), 'value': y.get('value'), 'type': 'y'})
-    if series:
-        axis.append({'name': series.get('name'), 'value': series.get('value'), 'type': 'series'})
+        axis = []
+        for v in columns:
+            axis.append({'name': v.get('name'), 'value': v.get('value')})
+        if x:
+            axis.append({'name': x.get('name'), 'value': x.get('value'), 'type': 'x'})
+        if y:
+            axis.append({'name': y.get('name'), 'value': y.get('value'), 'type': 'y'})
+        if series:
+            axis.append({'name': series.get('name'), 'value': series.get('value'), 'type': 'series'})
 
-    request_obj = {
-        "path": os.path.join(settings.MCP_IMAGE_PATH, file_name),
-        "type": chart['type'],
-        "data": orjson.dumps(data.get('data') if data.get('data') else []).decode(),
-        "axis": orjson.dumps(axis).decode(),
-    }
+        request_obj = {
+            "path": os.path.join(settings.MCP_IMAGE_PATH, file_name),
+            "type": chart['type'],
+            "data": orjson.dumps(data.get('data') if data.get('data') else []).decode(),
+            "axis": orjson.dumps(axis).decode(),
+        }
 
     requests.post(url=settings.MCP_IMAGE_HOST, json=request_obj)
 
