@@ -41,6 +41,7 @@ from apps.db.db import exec_sql, get_version, check_connection
 from apps.system.crud.assistant import AssistantOutDs, AssistantOutDsFactory, get_assistant_ds
 from apps.system.schemas.system_schema import AssistantOutDsSchema
 from apps.terminology.curd.terminology import get_terminology_template
+from apps.template.curd.template_prompt_helper import get_user_template_prompts
 from common.core.config import settings
 from common.core.db import engine
 from common.core.deps import CurrentAssistant, CurrentUser
@@ -239,6 +240,11 @@ class LLMService:
         if SQLBotLicenseUtil.valid():
             self.chat_question.custom_prompt = find_custom_prompts(_session, CustomPromptTypeEnum.ANALYSIS,
                                                                    self.current_user.oid, ds_id)
+        
+        # 获取用户自定义分析提示词
+        self.chat_question.user_template_prompt = get_user_template_prompts(
+            _session, 'analysis', self.current_user.oid, ds_id
+        )
 
         analysis_msg.append(SystemMessage(content=self.chat_question.analysis_sys_question()))
         analysis_msg.append(HumanMessage(content=self.chat_question.analysis_user_question()))
@@ -288,6 +294,12 @@ class LLMService:
             ds_id = self.ds.id if isinstance(self.ds, CoreDatasource) else None
             self.chat_question.custom_prompt = find_custom_prompts(_session, CustomPromptTypeEnum.PREDICT_DATA,
                                                                    self.current_user.oid, ds_id)
+        
+        # 获取用户自定义预测提示词
+        ds_id = self.ds.id if isinstance(self.ds, CoreDatasource) else None
+        self.chat_question.user_template_prompt = get_user_template_prompts(
+            _session, 'predict', self.current_user.oid, ds_id
+        )
 
         predict_msg: List[Union[BaseMessage, dict[str, Any]]] = []
         predict_msg.append(SystemMessage(content=self.chat_question.predict_sys_question()))
@@ -328,6 +340,12 @@ class LLMService:
                                                                 token_usage=token_usage)
 
     def generate_recommend_questions_task(self, _session: Session):
+        # 获取用户自定义推荐问题提示词
+        oid = self.ds.oid if isinstance(self.ds, CoreDatasource) else 1
+        ds_id = self.ds.id if isinstance(self.ds, CoreDatasource) else None
+        self.chat_question.user_template_prompt = get_user_template_prompts(
+            _session, 'guess', oid, ds_id
+        )
 
         # get schema
         if self.ds and not self.chat_question.db_schema:
@@ -341,6 +359,13 @@ class LLMService:
         guess_msg: List[Union[BaseMessage, dict[str, Any]]] = []
         guess_msg.append(SystemMessage(content=self.chat_question.guess_sys_question(self.articles_number)))
 
+        # 获取用户自定义推荐问题提示词
+        oid = self.ds.oid if isinstance(self.ds, CoreDatasource) else 1
+        ds_id = self.ds.id if isinstance(self.ds, CoreDatasource) else None
+        self.chat_question.user_template_prompt = get_user_template_prompts(
+            _session, 'guess', oid, ds_id
+        )
+        
         old_questions = list(map(lambda q: q.strip(), get_old_questions(_session, self.record.datasource)))
         guess_msg.append(
             HumanMessage(content=self.chat_question.guess_user_question(orjson.dumps(old_questions).decode())))
@@ -524,6 +549,11 @@ class LLMService:
             if SQLBotLicenseUtil.valid():
                 self.chat_question.custom_prompt = find_custom_prompts(_session, CustomPromptTypeEnum.GENERATE_SQL,
                                                                        oid, ds_id)
+            
+            # 获取用户自定义系统提示词
+            self.chat_question.user_template_prompt = get_user_template_prompts(
+                _session, 'sql', oid, ds_id
+            )
 
             self.init_messages()
 
@@ -570,6 +600,14 @@ class LLMService:
         sub_query = json.dumps(sub_mappings, ensure_ascii=False)
         self.chat_question.sql = sql
         self.chat_question.sub_query = sub_query
+        
+        # 获取用户自定义动态SQL提示词
+        oid = self.ds.oid if isinstance(self.ds, CoreDatasource) else 1
+        ds_id = self.ds.id if isinstance(self.ds, CoreDatasource) else None
+        self.chat_question.user_template_prompt = get_user_template_prompts(
+            session, 'dynamic_sql', oid, ds_id
+        )
+        
         dynamic_sql_msg: List[Union[BaseMessage, dict[str, Any]]] = []
         dynamic_sql_msg.append(SystemMessage(content=self.chat_question.dynamic_sys_question()))
         dynamic_sql_msg.append(HumanMessage(content=self.chat_question.dynamic_user_question()))
@@ -628,6 +666,14 @@ class LLMService:
         filter = json.dumps(filters, ensure_ascii=False)
         self.chat_question.sql = sql
         self.chat_question.filter = filter
+        
+        # 获取用户自定义权限过滤提示词
+        oid = self.ds.oid if isinstance(self.ds, CoreDatasource) else 1
+        ds_id = self.ds.id if isinstance(self.ds, CoreDatasource) else None
+        self.chat_question.user_template_prompt = get_user_template_prompts(
+            session, 'permissions', oid, ds_id
+        )
+        
         permission_sql_msg: List[Union[BaseMessage, dict[str, Any]]] = []
         permission_sql_msg.append(SystemMessage(content=self.chat_question.filter_sys_question()))
         permission_sql_msg.append(HumanMessage(content=self.chat_question.filter_user_question()))
@@ -1103,6 +1149,13 @@ class LLMService:
                     yield json_result
                 return
 
+            # 获取用户自定义图表提示词
+            ds_id = self.ds.id if isinstance(self.ds, CoreDatasource) else None
+            oid = self.ds.oid if isinstance(self.ds, CoreDatasource) else 1
+            self.chat_question.user_template_prompt = get_user_template_prompts(
+                _session, 'chart', oid, ds_id
+            )
+            
             # generate chart
             chart_res = self.generate_chart(_session, chart_type)
             full_chart_text = ''

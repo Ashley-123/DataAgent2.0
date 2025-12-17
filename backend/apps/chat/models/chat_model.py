@@ -183,6 +183,7 @@ class AiModelQuestion(BaseModel):
     terminologies: str = ""
     data_training: str = ""
     custom_prompt: str = ""
+    user_template_prompt: str = ""  # 用户自定义系统提示词
     error_msg: str = ""
 
     def sql_sys_question(self, db_type: Union[str, DB], enable_query_limit: bool = True):
@@ -201,9 +202,13 @@ class AiModelQuestion(BaseModel):
             'example_answer_2']
         _example_answer_3 = _sql_template['example_answer_3_with_limit'] if enable_query_limit else _sql_template[
             'example_answer_3']
+        # 合并custom_prompt和user_template_prompt
+        combined_prompt = self.custom_prompt
+        if self.user_template_prompt:
+            combined_prompt = (combined_prompt + "\n\n" + self.user_template_prompt) if combined_prompt else self.user_template_prompt
         return _base_template['system'].format(engine=self.engine, schema=self.db_schema, question=self.question,
                                                lang=self.lang, terminologies=self.terminologies,
-                                               data_training=self.data_training, custom_prompt=self.custom_prompt,
+                                               data_training=self.data_training, custom_prompt=combined_prompt,
                                                process_check=_process_check,
                                                base_sql_rules=_base_sql_rules,
                                                basic_sql_examples=_sql_examples,
@@ -218,46 +223,74 @@ class AiModelQuestion(BaseModel):
                                                  change_title=change_title)
 
     def chart_sys_question(self):
-        return get_chart_template()['system'].format(sql=self.sql, question=self.question, lang=self.lang)
+        system_prompt = get_chart_template()['system'].format(sql=self.sql, question=self.question, lang=self.lang)
+        # 追加用户自定义提示词
+        if self.user_template_prompt:
+            system_prompt = system_prompt + "\n\n" + self.user_template_prompt
+        return system_prompt
 
     def chart_user_question(self, chart_type: Optional[str] = None):
         return get_chart_template()['user'].format(sql=self.sql, question=self.question, rule=self.rule,
                                                    chart_type=chart_type)
 
     def analysis_sys_question(self):
+        # 合并custom_prompt和user_template_prompt
+        combined_prompt = self.custom_prompt
+        if self.user_template_prompt:
+            combined_prompt = (combined_prompt + "\n\n" + self.user_template_prompt) if combined_prompt else self.user_template_prompt
         return get_analysis_template()['system'].format(lang=self.lang, terminologies=self.terminologies,
-                                                        custom_prompt=self.custom_prompt)
+                                                        custom_prompt=combined_prompt)
 
     def analysis_user_question(self):
         return get_analysis_template()['user'].format(fields=self.fields, data=self.data)
 
     def predict_sys_question(self):
-        return get_predict_template()['system'].format(lang=self.lang, custom_prompt=self.custom_prompt)
+        # 合并custom_prompt和user_template_prompt
+        combined_prompt = self.custom_prompt
+        if self.user_template_prompt:
+            combined_prompt = (combined_prompt + "\n\n" + self.user_template_prompt) if combined_prompt else self.user_template_prompt
+        return get_predict_template()['system'].format(lang=self.lang, custom_prompt=combined_prompt)
 
     def predict_user_question(self):
         return get_predict_template()['user'].format(fields=self.fields, data=self.data)
 
     def datasource_sys_question(self):
-        return get_datasource_template()['system'].format(lang=self.lang)
+        system_prompt = get_datasource_template()['system'].format(lang=self.lang)
+        # 追加用户自定义提示词
+        if self.user_template_prompt:
+            system_prompt = system_prompt + "\n\n" + self.user_template_prompt
+        return system_prompt
 
     def datasource_user_question(self, datasource_list: str = "[]"):
         return get_datasource_template()['user'].format(question=self.question, data=datasource_list)
 
     def guess_sys_question(self, articles_number: int = 4):
-        return get_guess_question_template()['system'].format(lang=self.lang, articles_number=articles_number)
+        system_prompt = get_guess_question_template()['system'].format(lang=self.lang, articles_number=articles_number)
+        # 追加用户自定义提示词
+        if self.user_template_prompt:
+            system_prompt = system_prompt + "\n\n" + self.user_template_prompt
+        return system_prompt
 
     def guess_user_question(self, old_questions: str = "[]"):
         return get_guess_question_template()['user'].format(question=self.question, schema=self.db_schema,
                                                             old_questions=old_questions)
 
     def filter_sys_question(self):
-        return get_permissions_template()['system'].format(lang=self.lang, engine=self.engine)
+        system_prompt = get_permissions_template()['system'].format(lang=self.lang, engine=self.engine)
+        # 追加用户自定义提示词
+        if self.user_template_prompt:
+            system_prompt = system_prompt + "\n\n" + self.user_template_prompt
+        return system_prompt
 
     def filter_user_question(self):
         return get_permissions_template()['user'].format(sql=self.sql, filter=self.filter)
 
     def dynamic_sys_question(self):
-        return get_dynamic_template()['system'].format(lang=self.lang, engine=self.engine)
+        system_prompt = get_dynamic_template()['system'].format(lang=self.lang, engine=self.engine)
+        # 追加用户自定义提示词
+        if self.user_template_prompt:
+            system_prompt = system_prompt + "\n\n" + self.user_template_prompt
+        return system_prompt
 
     def dynamic_user_question(self):
         return get_dynamic_template()['user'].format(sql=self.sql, sub_query=self.sub_query)
