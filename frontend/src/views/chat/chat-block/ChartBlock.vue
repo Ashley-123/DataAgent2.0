@@ -17,7 +17,7 @@ import icon_export_outlined from '@/assets/svg/icon_export_outlined.svg'
 import icon_file_image_colorful from '@/assets/svg/icon_file-image_colorful.svg'
 import icon_file_excel_colorful from '@/assets/svg/icon_file-excel_colorful.svg'
 
-import icon_windows_edit from '@/assets/svg/icon_windows_edit.svg'
+// import icon_windows_edit from '@/assets/svg/icon_windows_edit.svg'
 import icon_into_item_outlined from '@/assets/svg/icon_into-item_outlined.svg'
 import icon_window_max_outlined from '@/assets/svg/icon_window-max_outlined.svg'
 import icon_window_mini_outlined from '@/assets/svg/icon_window-mini_outlined.svg'
@@ -209,10 +209,10 @@ function openFullScreen() {
   dialogVisible.value = true
 }
 //设置编辑,加上批量删减,多选,删除行/列功能(待加入)
-function openScreenDataEdit(){
-  openFullScreen();
-  changeTable();
-}
+// function openScreenDataEdit(){
+//   openFullScreen();
+//   changeTable();
+// }
 
 function closeFullScreen() {
   emits('exitFullScreen')
