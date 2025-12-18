@@ -16,6 +16,8 @@ import icon_sql_outlined from '@/assets/svg/icon_sql_outlined.svg'
 import icon_export_outlined from '@/assets/svg/icon_export_outlined.svg'
 import icon_file_image_colorful from '@/assets/svg/icon_file-image_colorful.svg'
 import icon_file_excel_colorful from '@/assets/svg/icon_file-excel_colorful.svg'
+
+import icon_windows_edit from '@/assets/svg/icon_windows_edit.svg'
 import icon_into_item_outlined from '@/assets/svg/icon_into-item_outlined.svg'
 import icon_window_max_outlined from '@/assets/svg/icon_window-max_outlined.svg'
 import icon_window_mini_outlined from '@/assets/svg/icon_window-mini_outlined.svg'
@@ -206,6 +208,11 @@ const dialogVisible = ref(false)
 function openFullScreen() {
   dialogVisible.value = true
 }
+//设置编辑,加上批量删减,多选,删除行/列功能(待加入)
+function openScreenDataEdit(){
+  openFullScreen();
+  changeTable();
+}
 
 function closeFullScreen() {
   emits('exitFullScreen')
@@ -221,9 +228,10 @@ function showSql() {
   sqlShow.value = true
 }
 function handleReExecuteSQL(params: { recordId: number; sql: string }) {
-  // 将事件向上传递给父组件 ChartAnswer
   emits('re-execute-sql', params)
-  
+  //可以加一个弹窗,内容要改
+  // ElMessage.success(t('embedded.copy_successful'))
+  sqlShow.value = false;
 }
 
 function addToDashboard() {
@@ -451,6 +459,21 @@ watch(
           </el-tooltip>
         </div>
         <div class="divider" />
+        <!-- icon_edit_add 要与明细表绑定
+        <div>
+          <el-tooltip
+            effect="dark"
+            :offset="8"
+            :content="$t('common.zoom_in')"
+            placement="top"
+          >
+            <el-button class="tool-btn" text @click="openScreenDataEdit">
+              <el-icon size="16">
+                <icon_windows_edit />
+              </el-icon>
+            </el-button>
+          </el-tooltip>
+        </div> -->
         <div v-if="!enlarge">
           <el-tooltip
             effect="dark"
