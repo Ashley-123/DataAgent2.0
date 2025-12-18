@@ -45,44 +45,39 @@ async def pager(
         try:
             # 方法1: 尝试使用 model_dump（SQLModel 对象）
             if hasattr(item, 'model_dump'):
-                try:
-                    item_dict = item.model_dump()
-                except Exception:
-                    # 如果 model_dump 失败，手动提取
-                    pass
-            
-            # 如果 item_dict 为空或缺少必填字段，手动提取
-            if not item_dict or item_dict.get('type') is None or item_dict.get('content') is None:
-                # 方法2: 直接访问属性
-                try:
-                    item_dict = {
-                        "id": getattr(item, 'id', None),
-                        "oid": getattr(item, 'oid', None),
-                        "type": getattr(item, 'type', None),
-                        "name": getattr(item, 'name', None),
-                        "content": getattr(item, 'content', None),
-                        "datasource_id": getattr(item, 'datasource_id', None),
-                        "enabled": getattr(item, 'enabled', None),
-                        "create_time": getattr(item, 'create_time', None),
-                        "update_time": getattr(item, 'update_time', None)
-                    }
-                except (AttributeError, KeyError, TypeError):
-                    # 如果直接访问失败，跳过该记录
-                    continue
-        except Exception:
-            # 如果所有方法都失败，跳过该记录
-            continue
+                item_dict = item.model_dump()
+            # 方法2: 尝试直接访问属性
+            else:
+                item_dict = {
+                    "id": item.id if hasattr(item, 'id') else None,
+                    "oid": item.oid if hasattr(item, 'oid') else None,
+                    "type": item.type if hasattr(item, 'type') else None,
+                    "name": item.name if hasattr(item, 'name') else None,
+                    "content": item.content if hasattr(item, 'content') else None,
+                    "datasource_id": item.datasource_id if hasattr(item, 'datasource_id') else None,
+                    "enabled": item.enabled if hasattr(item, 'enabled') else None,
+                    "create_time": item.create_time if hasattr(item, 'create_time') else None,
+                    "update_time": item.update_time if hasattr(item, 'update_time') else None
+                }
+        except (AttributeError, KeyError, TypeError) as e:
+            # 方法3: 如果以上都失败，尝试使用 getattr
+            try:
+                item_dict = {
+                    "id": getattr(item, 'id', None),
+                    "oid": getattr(item, 'oid', None),
+                    "type": getattr(item, 'type', None),
+                    "name": getattr(item, 'name', None),
+                    "content": getattr(item, 'content', None),
+                    "datasource_id": getattr(item, 'datasource_id', None),
+                    "enabled": getattr(item, 'enabled', None),
+                    "create_time": getattr(item, 'create_time', None),
+                    "update_time": getattr(item, 'update_time', None)
+                }
+            except Exception:
+                # 如果还是失败，返回空字典（不应该发生）
+                item_dict = {}
         
-        # 检查必填字段，如果 type 或 content 为 None，跳过该记录
-        if item_dict.get('type') is None or item_dict.get('content') is None:
-            continue
-        
-        # 验证并添加到列表
-        try:
-            data_list.append(TemplatePromptInfo.model_validate(item_dict))
-        except Exception:
-            # 如果验证失败，跳过该记录
-            continue
+        data_list.append(TemplatePromptInfo.model_validate(item_dict))
 
     return {
         "current_page": current_page,
