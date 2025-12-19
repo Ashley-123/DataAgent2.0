@@ -75,10 +75,21 @@ function getExcelData() {
   return chartRef.value?.getExcelData()
 }
 
+function applyLegendControl(legendString: string) {
+
+  // 调用 ChartComponent 的图例控制方法
+  if (chartRef.value && chartRef.value.applyLegendControl) {
+    chartRef.value.applyLegendControl(legendString)
+  } else {
+    console.warn('⚠️  ChartComponent 不支持图例控制')
+  }
+}
+
 defineExpose({
   onTypeChange,
   getViewInfo,
   getExcelData,
+  applyLegendControl,
 })
 </script>
 

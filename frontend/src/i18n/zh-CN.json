@@ -657,6 +657,10 @@
     "execute_sql": "执行新SQL",
     "save_sql": "保存SQL",
     "cancel_sql": "取消编辑",
+    "legend_input_placeholder": "输入图例名，可用逗号、分号、换行符分隔",
+    "hide_other_legends": "隐藏其他图例",
+    "show_all_legends": "显示所有",
+    "legend_control": "控制图例",
 
     "export_to": "导出为",
     "excel": "Excel",
