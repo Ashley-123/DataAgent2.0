@@ -17,9 +17,9 @@ from langchain_community.utilities import SQLDatabase
 from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage, BaseMessageChunk
 from sqlalchemy import and_, select
 from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlbot_xpack.custom_prompt.curd.custom_prompt import find_custom_prompts
-from sqlbot_xpack.custom_prompt.models.custom_prompt_model import CustomPromptTypeEnum
-from sqlbot_xpack.license.license_manage import SQLBotLicenseUtil
+# from sqlbot_xpack.custom_prompt.curd.custom_prompt import find_custom_prompts
+# from sqlbot_xpack.custom_prompt.models.custom_prompt_model import CustomPromptTypeEnum
+# from sqlbot_xpack.license.license_manage import SQLBotLicenseUtil
 from sqlmodel import Session
 
 from apps.ai_model.model_factory import LLMConfig, LLMFactory, get_default_config
@@ -29,12 +29,12 @@ from apps.chat.curd.chat import save_question, save_sql_answer, save_sql, \
     save_select_datasource_answer, save_recommend_question_answer, \
     get_old_questions, save_analysis_predict_record, rename_chat, get_chart_config, \
     get_chat_chart_data, list_generate_sql_logs, list_generate_chart_logs, start_log, end_log, \
-    get_last_execute_sql_error, format_json_data, format_chart_fields, get_chat_brief_generate
+    get_last_execute_sql_error
 from apps.chat.models.chat_model import ChatQuestion, ChatRecord, Chat, RenameChat, ChatLog, OperationEnum, \
-    ChatFinishStep, AxisObj
+    ChatFinishStep
 from apps.data_training.curd.data_training import get_training_template
 from apps.datasource.crud.datasource import get_table_schema
-from apps.datasource.crud.permission import get_row_permission_filters, is_normal_user
+from apps.permission_alt.crud.permission_crud import get_row_permission_filters, is_normal_user
 from apps.datasource.embedding.ds_embedding import get_ds_embedding
 from apps.datasource.models.datasource import CoreDatasource
 from apps.db.db import exec_sql, get_version, check_connection
@@ -45,7 +45,6 @@ from common.core.config import settings
 from common.core.db import engine
 from common.core.deps import CurrentAssistant, CurrentUser
 from common.error import SingleMessageError, SQLBotDBError, ParseSQLResultError, SQLBotDBConnectionError
-from common.utils.data_format import DataFormat
 from common.utils.utils import SQLBotLogUtil, extract_nested_json, prepare_for_orjson
 
 warnings.filterwarnings("ignore")
@@ -84,8 +83,6 @@ class LLMService:
     future: Future
 
     last_execute_sql_error: str = None
-    articles_number: int = 4
-    original_chart_config: Optional[Dict[str, Any]] = None  # 添加：存储原始图表配置
 
     def __init__(self, session: Session, current_user: CurrentUser, chat_question: ChatQuestion,
                  current_assistant: Optional[CurrentAssistant] = None, no_reasoning: bool = False,
@@ -118,7 +115,7 @@ class LLMService:
         self.generate_sql_logs = list_generate_sql_logs(session=session, chart_id=chat_id)
         self.generate_chart_logs = list_generate_chart_logs(session=session, chart_id=chat_id)
 
-        self.change_title = not get_chat_brief_generate(session=session, chat_id=chat_id)
+        self.change_title = len(self.generate_sql_logs) == 0
 
         chat_question.lang = get_lang_name(current_user.language)
 
@@ -215,16 +212,24 @@ class LLMService:
     def set_record(self, record: ChatRecord):
         self.record = record
 
-    def set_original_chart_config(self, chart_config: Optional[Dict[str, Any]]):
-        """设置原始图表配置，用于重新执行SQL时复用"""
-        self.original_chart_config = chart_config
-
-    def set_articles_number(self, articles_number: int):
-        self.articles_number = articles_number
-
     def get_fields_from_chart(self, _session: Session):
         chart_info = get_chart_config(_session, self.record.id)
-        return format_chart_fields(chart_info)
+        fields = []
+        if chart_info.get('columns') and len(chart_info.get('columns')) > 0:
+            for column in chart_info.get('columns'):
+                column_str = column.get('value')
+                if column.get('value') != column.get('name'):
+                    column_str = column_str + '(' + column.get('name') + ')'
+                fields.append(column_str)
+        if chart_info.get('axis'):
+            for _type in ['x', 'y', 'series']:
+                if chart_info.get('axis').get(_type):
+                    column = chart_info.get('axis').get(_type)
+                    column_str = column.get('value')
+                    if column.get('value') != column.get('name'):
+                        column_str = column_str + '(' + column.get('name') + ')'
+                    fields.append(column_str)
+        return fields
 
     def generate_analysis(self, _session: Session):
         fields = self.get_fields_from_chart(_session)
@@ -236,9 +241,9 @@ class LLMService:
         ds_id = self.ds.id if isinstance(self.ds, CoreDatasource) else None
         self.chat_question.terminologies = get_terminology_template(_session, self.chat_question.question,
                                                                     self.current_user.oid, ds_id)
-        if SQLBotLicenseUtil.valid():
-            self.chat_question.custom_prompt = find_custom_prompts(_session, CustomPromptTypeEnum.ANALYSIS,
-                                                                   self.current_user.oid, ds_id)
+        # if SQLBotLicenseUtil.valid():
+        #     self.chat_question.custom_prompt = find_custom_prompts(_session, CustomPromptTypeEnum.ANALYSIS,
+        #                                                            self.current_user.oid, ds_id)
 
         analysis_msg.append(SystemMessage(content=self.chat_question.analysis_sys_question()))
         analysis_msg.append(HumanMessage(content=self.chat_question.analysis_user_question()))
@@ -284,10 +289,10 @@ class LLMService:
         data = get_chat_chart_data(_session, self.record.id)
         self.chat_question.data = orjson.dumps(data.get('data')).decode()
 
-        if SQLBotLicenseUtil.valid():
-            ds_id = self.ds.id if isinstance(self.ds, CoreDatasource) else None
-            self.chat_question.custom_prompt = find_custom_prompts(_session, CustomPromptTypeEnum.PREDICT_DATA,
-                                                                   self.current_user.oid, ds_id)
+        # if SQLBotLicenseUtil.valid():
+        #     ds_id = self.ds.id if isinstance(self.ds, CoreDatasource) else None
+        #     self.chat_question.custom_prompt = find_custom_prompts(_session, CustomPromptTypeEnum.PREDICT_DATA,
+        #                                                            self.current_user.oid, ds_id)
 
         predict_msg: List[Union[BaseMessage, dict[str, Any]]] = []
         predict_msg.append(SystemMessage(content=self.chat_question.predict_sys_question()))
@@ -339,7 +344,7 @@ class LLMService:
                 embedding=False)
 
         guess_msg: List[Union[BaseMessage, dict[str, Any]]] = []
-        guess_msg.append(SystemMessage(content=self.chat_question.guess_sys_question(self.articles_number)))
+        guess_msg.append(SystemMessage(content=self.chat_question.guess_sys_question()))
 
         old_questions = list(map(lambda q: q.strip(), get_old_questions(_session, self.record.datasource)))
         guess_msg.append(
@@ -409,7 +414,7 @@ class LLMService:
             if settings.TABLE_EMBEDDING_ENABLED and (
                     not self.current_assistant or (self.current_assistant and self.current_assistant.type != 1)):
                 _ds_list = get_ds_embedding(_session, self.current_user, _ds_list, self.out_ds_instance,
-                                            self.chat_question.question, self.current_assistant)
+                                      self.chat_question.question, self.current_assistant)
                 # yield {'content': '{"id":' + str(ds.get('id')) + '}'}
 
             _ds_list_dict = []
@@ -515,15 +520,11 @@ class LLMService:
 
             self.chat_question.terminologies = get_terminology_template(_session, self.chat_question.question, oid,
                                                                         ds_id)
-            if self.current_assistant and self.current_assistant.type == 1:
-                self.chat_question.data_training = get_training_template(_session, self.chat_question.question,
-                                                                         oid, None, self.current_assistant.id)
-            else:
-                self.chat_question.data_training = get_training_template(_session, self.chat_question.question,
-                                                                         oid, ds_id)
-            if SQLBotLicenseUtil.valid():
-                self.chat_question.custom_prompt = find_custom_prompts(_session, CustomPromptTypeEnum.GENERATE_SQL,
-                                                                       oid, ds_id)
+            self.chat_question.data_training = get_training_template(_session, self.chat_question.question, ds_id,
+                                                                     oid)
+            # if SQLBotLicenseUtil.valid():
+            #     self.chat_question.custom_prompt = find_custom_prompts(_session, CustomPromptTypeEnum.GENERATE_SQL,
+            #                                                            oid, ds_id)
 
             self.init_messages()
 
@@ -533,8 +534,7 @@ class LLMService:
     def generate_sql(self, _session: Session):
         # append current question
         self.sql_message.append(HumanMessage(
-            self.chat_question.sql_user_question(current_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                                                 change_title=self.change_title)))
+            self.chat_question.sql_user_question(current_time=datetime.now().strftime('%Y-%m-%d %H:%M:%S'))))
 
         self.current_logs[OperationEnum.GENERATE_SQL] = start_log(session=_session,
                                                                   ai_modal_id=self.chat_question.ai_modal_id,
@@ -766,26 +766,6 @@ class LLMService:
 
         return chart_type
 
-    @staticmethod
-    def get_brief_from_sql_answer(res: str) -> Optional[str]:
-        json_str = extract_nested_json(res)
-        if json_str is None:
-            return None
-
-        brief: Optional[str]
-        data: dict
-        try:
-            data = orjson.loads(json_str)
-
-            if data['success']:
-                brief = data['brief']
-            else:
-                return None
-        except Exception:
-            return None
-
-        return brief
-
     def check_save_sql(self, session: Session, res: str) -> str:
         sql, *_ = self.check_sql(res=res)
         save_sql(session=session, sql=sql, record_id=self.record.id)
@@ -861,7 +841,7 @@ class LLMService:
             limit = 1000
             if data_result:
                 data_result = prepare_for_orjson(data_result)
-                if data_result and len(data_result) > limit and settings.GENERATE_SQL_QUERY_LIMIT_ENABLED:
+                if data_result and len(data_result) > limit:
                     data_obj['data'] = data_result[:limit]
                     data_obj['limit'] = limit
                 else:
@@ -937,16 +917,12 @@ class LLMService:
                 ds_id = self.ds.id if isinstance(self.ds, CoreDatasource) else None
                 self.chat_question.terminologies = get_terminology_template(_session, self.chat_question.question,
                                                                             oid, ds_id)
-                if self.current_assistant and self.current_assistant.type == 1:
-                    self.chat_question.data_training = get_training_template(_session, self.chat_question.question,
-                                                                             oid, None, self.current_assistant.id)
-                else:
-                    self.chat_question.data_training = get_training_template(_session, self.chat_question.question,
-                                                                             oid, ds_id)
-                if SQLBotLicenseUtil.valid():
-                    self.chat_question.custom_prompt = find_custom_prompts(_session,
-                                                                           CustomPromptTypeEnum.GENERATE_SQL,
-                                                                           oid, ds_id)
+                self.chat_question.data_training = get_training_template(_session, self.chat_question.question,
+                                                                         ds_id, oid)
+                # if SQLBotLicenseUtil.valid():
+                #     self.chat_question.custom_prompt = find_custom_prompts(_session,
+                #                                                            CustomPromptTypeEnum.GENERATE_SQL,
+                #                                                            oid, ds_id)
                 self.init_messages()
 
             # return id
@@ -954,6 +930,17 @@ class LLMService:
                 yield 'data:' + orjson.dumps({'type': 'id', 'id': self.get_record().id}).decode() + '\n\n'
             if not stream:
                 json_result['record_id'] = self.get_record().id
+
+            # return title
+            if self.change_title:
+                if self.chat_question.question or self.chat_question.question.strip() != '':
+                    brief = rename_chat(session=_session,
+                                        rename_object=RenameChat(id=self.get_record().chat_id,
+                                                                 brief=self.chat_question.question.strip()[:20]))
+                    if in_chat:
+                        yield 'data:' + orjson.dumps({'type': 'brief', 'brief': brief}).decode() + '\n\n'
+                    if not stream:
+                        json_result['title'] = brief
 
                 # select datasource if datasource is none
             if not self.ds:
@@ -999,21 +986,6 @@ class LLMService:
             SQLBotLogUtil.info(full_sql_text)
 
             chart_type = self.get_chart_type_from_sql_answer(full_sql_text)
-
-            # return title
-            if self.change_title:
-                llm_brief = self.get_brief_from_sql_answer(full_sql_text)
-                llm_brief_generated = bool(llm_brief)
-                if llm_brief_generated or (self.chat_question.question and self.chat_question.question.strip() != ''):
-                    save_brief = llm_brief if (llm_brief and llm_brief != '') else self.chat_question.question.strip()[
-                                                                                   :20]
-                    brief = rename_chat(session=_session,
-                                        rename_object=RenameChat(id=self.get_record().chat_id,
-                                                                 brief=save_brief, brief_generate=llm_brief_generated))
-                    if in_chat:
-                        yield 'data:' + orjson.dumps({'type': 'brief', 'brief': brief}).decode() + '\n\n'
-                    if not stream:
-                        json_result['title'] = brief
 
             use_dynamic_ds: bool = self.current_assistant and self.current_assistant.type in dynamic_ds_types
             is_page_embedded: bool = self.current_assistant and self.current_assistant.type == 4
@@ -1073,36 +1045,34 @@ class LLMService:
                 return
 
             result = self.execute_sql(sql=real_execute_sql)
-
-            _data = DataFormat.convert_large_numbers_in_object_array(result.get('data'))
-            result["data"] = _data
-
             self.save_sql_data(session=_session, data_obj=result)
             if in_chat:
                 yield 'data:' + orjson.dumps({'content': 'execute-success', 'type': 'sql-data'}).decode() + '\n\n'
             if not stream:
-                json_result['data'] = get_chat_chart_data(_session, self.record.id)
+                json_result['data'] = result.get('data')
 
             if finish_step.value <= ChatFinishStep.QUERY_DATA.value:
                 if stream:
                     if in_chat:
                         yield 'data:' + orjson.dumps({'type': 'finish'}).decode() + '\n\n'
                     else:
-                        _column_list = []
-                        for field in result.get('fields'):
-                            _column_list.append(AxisObj(name=field, value=field))
+                        data = []
+                        _fields_list = []
+                        _fields_skip = False
+                        for _data in result.get('data'):
+                            _row = []
+                            for field in result.get('fields'):
+                                _row.append(_data.get(field))
+                                if not _fields_skip:
+                                    _fields_list.append(field)
+                            data.append(_row)
+                            _fields_skip = True
 
-                        md_data, _fields_list = DataFormat.convert_object_array_for_pandas(_column_list,
-                                                                                           result.get('data'))
-
-                        # data, _fields_list, col_formats = self.format_pd_data(_column_list, result.get('data'))
-
-                        if not _data or not _fields_list:
+                        if not data or not _fields_list:
                             yield 'The SQL execution result is empty.\n\n'
                         else:
-                            df = pd.DataFrame(_data, columns=_fields_list)
-                            df_safe = DataFormat.safe_convert_to_string(df)
-                            markdown_table = df_safe.to_markdown(index=False)
+                            df = pd.DataFrame(data, columns=_fields_list)
+                            markdown_table = df.to_markdown(index=False)
                             yield markdown_table + '\n\n'
                 else:
                     yield json_result
@@ -1133,6 +1103,7 @@ class LLMService:
                     {'content': orjson.dumps(chart).decode(), 'type': 'chart'}).decode() + '\n\n'
             else:
                 if stream:
+                    data = []
                     _fields = {}
                     if chart.get('columns'):
                         for _column in chart.get('columns'):
@@ -1146,40 +1117,36 @@ class LLMService:
                         if chart.get('axis').get('series'):
                             _fields[chart.get('axis').get('series').get('value')] = chart.get('axis').get('series').get(
                                 'name')
-                    _column_list = []
-                    for field in result.get('fields'):
-                        _column_list.append(
-                            AxisObj(name=field if not _fields.get(field) else _fields.get(field), value=field))
+                    _fields_list = []
+                    _fields_skip = False
+                    for _data in result.get('data'):
+                        _row = []
+                        for field in result.get('fields'):
+                            _row.append(_data.get(field))
+                            if not _fields_skip:
+                                _fields_list.append(field if not _fields.get(field) else _fields.get(field))
+                        data.append(_row)
+                        _fields_skip = True
 
-                    md_data, _fields_list = DataFormat.convert_object_array_for_pandas(_column_list, result.get('data'))
-
-                    # data, _fields_list, col_formats = self.format_pd_data(_column_list, result.get('data'))
-
-                    if not md_data or not _fields_list:
+                    if not data or not _fields_list:
                         yield 'The SQL execution result is empty.\n\n'
                     else:
-                        df = pd.DataFrame(md_data, columns=_fields_list)
-                        df_safe = DataFormat.safe_convert_to_string(df)
-                        markdown_table = df_safe.to_markdown(index=False)
+                        df = pd.DataFrame(data, columns=_fields_list)
+                        markdown_table = df.to_markdown(index=False)
                         yield markdown_table + '\n\n'
 
             if in_chat:
                 yield 'data:' + orjson.dumps({'type': 'finish'}).decode() + '\n\n'
             else:
                 # todo generate picture
-                try:
-                    if chart['type'] != 'table':
-                        yield '### generated chart picture\n\n'
-                        image_url = request_picture(self.record.chat_id, self.record.id, chart,
-                                                    format_json_data(result))
-                        SQLBotLogUtil.info(image_url)
-                        if stream:
-                            yield f'![{chart["type"]}]({image_url})'
-                        else:
-                            json_result['image_url'] = image_url
-                except Exception as e:
+                if chart['type'] != 'table':
+                    yield '### generated chart picture\n\n'
+                    image_url = request_picture(self.record.chat_id, self.record.id, chart, result)
+                    SQLBotLogUtil.info(image_url)
                     if stream:
-                        raise e
+                        yield f'![{chart["type"]}]({image_url})'
+                    else:
+                        json_result['image_url'] = image_url
 
             if not stream:
                 yield json_result
@@ -1296,162 +1263,6 @@ class LLMService:
             # end
             session_maker.remove()
 
-    def run_re_execute_sql_task_async(self, session: Session, sql: str):
-        """异步执行重新执行SQL的任务"""
-        self.future = executor.submit(self.run_re_execute_sql_task_cache, sql)
-
-    def run_re_execute_sql_task_cache(self, sql: str):
-        """缓存重新执行SQL的任务结果"""
-        for chunk in self.run_re_execute_sql_task(sql):
-            self.chunk_list.append(chunk)
-
-    def run_re_execute_sql_task(self, sql: str):
-        """重新执行SQL并继续后续流程（保存数据、生成图表等）"""
-        _session = None
-        try:
-            _session = session_maker()
-            
-            # 返回记录ID
-            yield 'data:' + orjson.dumps({'type': 'id', 'id': self.get_record().id}).decode() + '\n\n'
-            
-            # 保存新的SQL
-            sql = self.check_save_sql(session=_session, res=orjson.dumps({'success': True, 'sql': sql}).decode())
-            
-            # 格式化SQL
-            format_sql = sqlparse.format(sql, reindent=True)
-            yield 'data:' + orjson.dumps({'content': format_sql, 'type': 'sql'}).decode() + '\n\n'
-            
-            # 执行SQL
-            result = self.execute_sql(sql=sql)
-            
-            # 处理数据
-            _data = DataFormat.convert_large_numbers_in_object_array(result.get('data'))
-            result["data"] = _data
-            
-            # 保存SQL执行结果
-            self.save_sql_data(session=_session, data_obj=result)
-            yield 'data:' + orjson.dumps({'content': 'execute-success', 'type': 'sql-data'}).decode() + '\n\n'
-            
-            # 获取图表类型（从之前的记录中获取，如果有的话）
-            chart_type = None
-            if self.record.chart:
-                try:
-                    chart_config = orjson.loads(self.record.chart)
-                    chart_type = chart_config.get('type')
-                except Exception:
-                    pass
-            
-            # 生成图表
-            chart_res = self.generate_chart(_session, chart_type)
-            full_chart_text = ''
-            for chunk in chart_res:
-                full_chart_text += chunk.get('content')
-                yield 'data:' + orjson.dumps(
-                    {'content': chunk.get('content'), 'reasoning_content': chunk.get('reasoning_content'),
-                     'type': 'chart-result'}).decode() + '\n\n'
-            
-            yield 'data:' + orjson.dumps({'type': 'info', 'msg': 'chart generated'}).decode() + '\n\n'
-            
-            # 保存图表配置
-            SQLBotLogUtil.info(full_chart_text)
-            chart = None
-            try:
-                chart = self.check_save_chart(session=_session, res=full_chart_text)
-                SQLBotLogUtil.info(chart)
-            except Exception as chart_error:
-                # 如果图表生成失败，使用原始记录的图表配置
-                SQLBotLogUtil.error(f"Chart parsing failed: {chart_error}")
-                traceback.print_exc()
-                
-                if self.original_chart_config:
-                    # 复用原始图表配置
-                    chart = self.original_chart_config.copy()
-                    
-                    # 根据新的SQL执行结果更新 columns
-                    data_columns = []
-                    if result.get('data') and len(result.get('data', [])) > 0:
-                        first_row = result.get('data')[0]
-                        for key in first_row.keys():
-                            # 检查是否已存在该列
-                            existing_column = None
-                            if chart.get('columns'):
-                                for col in chart.get('columns'):
-                                    if col.get('value', '').lower() == key.lower():
-                                        existing_column = col
-                                        break
-                            
-                            if existing_column:
-                                # 保留原始列名，只更新 value
-                                data_columns.append({
-                                    'name': existing_column.get('name', key),
-                                    'value': key.lower()
-                                })
-                            else:
-                                # 新列
-                                data_columns.append({
-                                    'name': key,
-                                    'value': key.lower()
-                                })
-                    else:
-                        # 如果没有数据，保持原始 columns
-                        data_columns = chart.get('columns', [])
-                    
-                    chart['columns'] = data_columns
-                    
-                    # 保存更新后的配置
-                    save_chart(session=_session, chart=orjson.dumps(chart).decode(), record_id=self.record.id)
-                else:
-                    # 如果没有原始配置，生成默认配置
-                    data_columns = []
-                    if result.get('data') and len(result.get('data', [])) > 0:
-                        first_row = result.get('data')[0]
-                        for key in first_row.keys():
-                            data_columns.append({
-                                'name': key,
-                                'value': key.lower()
-                            })
-                    
-                    chart = {
-                        'type': 'table',
-                        'title': self.chat_question.question if self.chat_question.question else '查询结果',
-                        'columns': data_columns
-                    }
-                    save_chart(session=_session, chart=orjson.dumps(chart).decode(), record_id=self.record.id)
-            
-            # 确保返回图表配置
-            if chart:
-                yield 'data:' + orjson.dumps(
-                    {'content': orjson.dumps(chart).decode(), 'type': 'chart'}).decode() + '\n\n'
-            
-            # 完成
-            yield 'data:' + orjson.dumps({'type': 'finish'}).decode() + '\n\n'
-            
-            # 标记记录为完成
-            self.finish(_session)
-            
-        except Exception as e:
-            traceback.print_exc()
-            error_msg: str
-            if isinstance(e, SingleMessageError):
-                error_msg = str(e)
-            elif isinstance(e, SQLBotDBConnectionError):
-                error_msg = orjson.dumps(
-                    {'message': str(e), 'type': 'db-connection-err'}).decode()
-            elif isinstance(e, SQLBotDBError):
-                error_msg = orjson.dumps(
-                    {'message': 'Execute SQL Failed', 'traceback': str(e), 'type': 'exec-sql-err'}).decode()
-            else:
-                error_msg = orjson.dumps({'message': str(e), 'traceback': traceback.format_exc(limit=1)}).decode()
-            
-            if _session:
-                self.save_error(session=_session, message=error_msg)
-            
-            yield 'data:' + orjson.dumps({'content': error_msg, 'type': 'error'}).decode() + '\n\n'
-        finally:
-            if _session:
-                self.finish(_session)
-            session_maker.remove()
-
     def validate_history_ds(self, session: Session):
         _ds = self.ds
         if not self.current_assistant or self.current_assistant.type == 4:
@@ -1502,40 +1313,31 @@ def execute_sql_with_db(db: SQLDatabase, sql: str) -> str:
 def request_picture(chat_id: int, record_id: int, chart: dict, data: dict):
     file_name = f'c_{chat_id}_r_{record_id}'
 
-    # Spec直通：当chart.type为spec时，直接透传完整G2 options
-    if chart.get('type') == 'spec' and chart.get('options') is not None:
-        request_obj = {
-            "path": os.path.join(settings.MCP_IMAGE_PATH, file_name),
-            "type": "spec",
-            # 透传完整options（字符串化，服务端再JSON解析）
-            "spec": orjson.dumps(chart.get('options')).decode(),
-        }
-    else:
-        columns = chart.get('columns') if chart.get('columns') else []
-        x = None
-        y = None
-        series = None
-        if chart.get('axis'):
-            x = chart.get('axis').get('x')
-            y = chart.get('axis').get('y')
-            series = chart.get('axis').get('series')
+    columns = chart.get('columns') if chart.get('columns') else []
+    x = None
+    y = None
+    series = None
+    if chart.get('axis'):
+        x = chart.get('axis').get('x')
+        y = chart.get('axis').get('y')
+        series = chart.get('axis').get('series')
 
-        axis = []
-        for v in columns:
-            axis.append({'name': v.get('name'), 'value': v.get('value')})
-        if x:
-            axis.append({'name': x.get('name'), 'value': x.get('value'), 'type': 'x'})
-        if y:
-            axis.append({'name': y.get('name'), 'value': y.get('value'), 'type': 'y'})
-        if series:
-            axis.append({'name': series.get('name'), 'value': series.get('value'), 'type': 'series'})
+    axis = []
+    for v in columns:
+        axis.append({'name': v.get('name'), 'value': v.get('value')})
+    if x:
+        axis.append({'name': x.get('name'), 'value': x.get('value'), 'type': 'x'})
+    if y:
+        axis.append({'name': y.get('name'), 'value': y.get('value'), 'type': 'y'})
+    if series:
+        axis.append({'name': series.get('name'), 'value': series.get('value'), 'type': 'series'})
 
-        request_obj = {
-            "path": os.path.join(settings.MCP_IMAGE_PATH, file_name),
-            "type": chart['type'],
-            "data": orjson.dumps(data.get('data') if data.get('data') else []).decode(),
-            "axis": orjson.dumps(axis).decode(),
-        }
+    request_obj = {
+        "path": os.path.join(settings.MCP_IMAGE_PATH, file_name),
+        "type": chart['type'],
+        "data": orjson.dumps(data.get('data') if data.get('data') else []).decode(),
+        "axis": orjson.dumps(axis).decode(),
+    }
 
     requests.post(url=settings.MCP_IMAGE_HOST, json=request_obj)
 

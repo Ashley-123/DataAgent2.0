@@ -17,11 +17,8 @@ import { dsTypeWithImg } from './js/ds-type'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '@/stores/user'
 import { chatApi } from '@/api/chat'
-import RecommendedProblemConfigDialog from '@/views/ds/RecommendedProblemConfigDialog.vue'
 const userStore = useUserStore()
-const recommendedProblemConfigRef = ref()
-
-export interface Datasource {
+interface Datasource {
   name: string
   num: string
   type_name: string
@@ -29,7 +26,6 @@ export interface Datasource {
   img: string
   description: string
   id?: string
-  recommended_config?: string
 }
 
 const router = useRouter()
@@ -79,10 +75,6 @@ const formatKeywords = (item: string) => {
 }
 const handleEditDatasource = (res: any) => {
   addDrawerRef.value.handleEditDatasource(res)
-}
-
-const handleRecommendation = (res: Datasource) => {
-  recommendedProblemConfigRef.value?.init(res)
 }
 
 const handleQuestion = async (id: string) => {
@@ -303,7 +295,6 @@ useEmitt({
             :description="ele.description"
             @question="handleQuestion"
             @edit="handleEditDatasource(ele)"
-            @recommendation="handleRecommendation(ele)"
             @del="deleteHandler(ele)"
             @data-table-detail="dataTableDetail(ele)"
           ></Card>
@@ -326,10 +317,7 @@ useEmitt({
         </el-button>
       </div>
     </template>
-    <RecommendedProblemConfigDialog
-      ref="recommendedProblemConfigRef"
-      @recommended-problem-change="search"
-    ></RecommendedProblemConfigDialog>
+
     <AddDrawer ref="addDrawerRef" @search="search"></AddDrawer>
   </div>
   <DataTable

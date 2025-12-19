@@ -6,7 +6,6 @@ import logging
 from datetime import datetime, timedelta, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
-import re
 from urllib.parse import urlparse
 
 from fastapi import Request
@@ -15,7 +14,11 @@ from typing import Optional
 
 import jwt
 import orjson
-from jwt.exceptions import InvalidTokenError
+try:
+    from jwt.exceptions import InvalidTokenError
+except ImportError:
+    # 兼容不同版本的PyJWT
+    from jwt import InvalidTokenError
 
 from common.core import security
 
@@ -264,17 +267,6 @@ def get_origin_from_referer(request: Request):
         SQLBotLogUtil.error(f"解析 Referer 出错: {e}")
         return referer
 
-def origin_match_domain(origin: str, domain: str) -> bool:
-    if not origin or not domain:
-        return False
-    origin_normalized = origin.rstrip('/')
-    
-    for d in re.split(r'[,;]', domain):
-        if d.strip().rstrip('/') == origin_normalized:
-            return True
-    
-    return False
-    
 
 def equals_ignore_case(str1: str, *args: str) -> bool:
     if str1 is None:

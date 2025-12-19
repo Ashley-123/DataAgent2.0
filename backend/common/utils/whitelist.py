@@ -23,7 +23,8 @@ wlist = [
     "*.eot",
     "*.otf",
     "/mcp*",
-    "/system/license",
+    # License functionality removed
+    # "/system/license",
     "/system/config/key",
     "/images/*",
     "/sse",
@@ -34,10 +35,13 @@ wlist = [
     "/system/assistant/app/*",
     "/system/assistant/picture/*",
     "/datasource/uploadExcel",
-    "/datasource/uploadExcelBatch",
-    "/system/authentication/platform/status",
-    "/system/authentication/login/*",
-    "/system/authentication/sso/*",
+    # 企业微信登录相关接口(无需认证)
+    "/wework/config",
+    "/wework/auth-url",
+    "/wework/callback",
+    # 企业微信回调接口(无需认证)
+    "/wework/callback/data",
+    "/wework/callback/command",
 ]
 
 class WhitelistChecker:

@@ -1,8 +1,8 @@
-import { ElMessage } from 'element-plus-secondary'
+// import { ElMessage } from 'element-plus-secondary'
 import { useCache } from '@/utils/useCache'
 import { useAppearanceStoreWithOut } from '@/stores/appearance'
 import { useUserStore } from '@/stores/user'
-import { request } from '@/utils/request'
+// import { request } from '@/utils/request'
 import type { Router } from 'vue-router'
 
 const appearanceStore = useAppearanceStoreWithOut()
@@ -12,9 +12,11 @@ const whiteList = ['/login']
 const assistantWhiteList = ['/assistant', '/embeddedPage', '/401']
 export const watchRouter = (router: Router) => {
   router.beforeEach(async (to: any, from: any, next: any) => {
-    await loadXpackStatic()
+    // License functionality removed
+    // await loadXpackStatic()
     await appearanceStore.setAppearance()
-    LicenseGenerator.generateRouters(router)
+    // License functionality removed
+    // LicenseGenerator.generateRouters(router)
     if (to.path.startsWith('/login') && userStore.getUid) {
       next('/')
       return
@@ -49,29 +51,31 @@ export const watchRouter = (router: Router) => {
   })
 }
 
-const accessCrossPermission = (to: any) => {
-  if (!to?.path) return false
-  return (
-    (to.path.startsWith('/system') && !userStore.isAdmin) ||
-    (to.path.startsWith('/set') && !userStore.isSpaceAdmin)
-  )
+const accessCrossPermission = (to: any) => {  
+  if (!to?.path) return false  
+  return (  
+    (to.path.startsWith('/system') && !userStore.isAdmin) ||  
+    (to.path.startsWith('/set') && !userStore.isSpaceAdmin) ||  
+    (to.path.startsWith('/ds') && !userStore.isSpaceAdmin)  // 用户空间普通用户无权限访问数据源管理
+  )  
 }
-const loadXpackStatic = () => {
-  if (document.getElementById('sqlbot_xpack_static')) {
-    return Promise.resolve()
-  }
-  const url = `/xpack_static/license-generator.umd.js?t=${Date.now()}`
-  return new Promise((resolve, reject) => {
-    request
-      .loadRemoteScript(url, 'sqlbot_xpack_static', () => {
-        LicenseGenerator?.init(import.meta.env.VITE_API_BASE_URL).then(() => {
-          resolve(true)
-        })
-      })
-      .catch((error) => {
-        console.error('Failed to load xpack_static script:', error)
-        ElMessage.error('Failed to load license generator script')
-        reject(error)
-      })
-  })
-}
+// License functionality removed
+// const loadXpackStatic = () => {
+//   if (document.getElementById('sqlbot_xpack_static')) {
+//     return Promise.resolve()
+//   }
+//   const url = `/xpack_static/license-generator.umd.js?t=${Date.now()}`
+//   return new Promise((resolve, reject) => {
+//     request
+//       .loadRemoteScript(url, 'sqlbot_xpack_static', () => {
+//         LicenseGenerator?.init(import.meta.env.VITE_API_BASE_URL).then(() => {
+//           resolve(true)
+//         })
+//       })
+//       .catch((error) => {
+//         console.error('Failed to load xpack_static script:', error)
+//         ElMessage.error('Failed to load license generator script')
+//         reject(error)
+//       })
+//   })
+// }

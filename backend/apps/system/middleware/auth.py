@@ -16,7 +16,7 @@ from common.core import security
 from common.core.config import settings
 from common.core.schemas import TokenPayload
 from common.utils.locale import I18n
-from common.utils.utils import SQLBotLogUtil, get_origin_from_referer
+from common.utils.utils import SQLBotLogUtil
 from common.utils.whitelist import whiteUtils
 from fastapi.security.utils import get_authorization_scheme_param
 from common.core.deps import get_i18n
@@ -29,7 +29,11 @@ class TokenMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request, call_next):
         
-        if self.is_options(request) or whiteUtils.is_whitelisted(request.url.path):
+        if self.is_options(request):
+            return await call_next(request)
+            
+        # 检查是否在白名单中
+        if whiteUtils.is_whitelisted(request.url.path):
             return await call_next(request)
         assistantTokenKey = settings.ASSISTANT_TOKEN_KEY
         assistantToken = request.headers.get(assistantTokenKey)
@@ -40,9 +44,6 @@ class TokenMiddleware(BaseHTTPMiddleware):
             if validator[0]:
                 request.state.current_user = validator[1]
                 request.state.assistant = validator[2]
-                origin = request.headers.get("X-SQLBOT-HOST-ORIGIN") or get_origin_from_referer(request)
-                if origin and validator[2]:
-                    request.state.assistant.request_origin = origin
                 return await call_next(request)
             message = trans('i18n_permission.authenticate_invalid', msg = validator[1])
             return JSONResponse(message, status_code=401, headers={"Access-Control-Allow-Origin": "*"})

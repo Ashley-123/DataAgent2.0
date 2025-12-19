@@ -4,10 +4,8 @@ import { chatApi, ChatInfo, type ChatMessage, ChatRecord } from '@/api/chat.ts'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import MdComponent from '@/views/chat/component/MdComponent.vue'
 import ChartBlock from '@/views/chat/chat-block/ChartBlock.vue'
-
 const props = withDefaults(
   defineProps<{
-    recordId?: number
     chatList?: Array<ChatInfo>
     currentChatId?: number
     currentChat?: ChatInfo
@@ -15,7 +13,6 @@ const props = withDefaults(
     loading?: boolean
   }>(),
   {
-    recordId: undefined,
     chatList: () => [],
     currentChatId: undefined,
     currentChat: () => new ChatInfo(),
@@ -204,49 +201,32 @@ const sendMessage = async () => {
 
 const chartBlockRef = ref()
 
-const loadingData = ref(false)
-
 function getChatPredictData(recordId?: number) {
-  loadingData.value = true
-  chatApi
-    .get_chart_predict_data(recordId)
-    .then((response) => {
-      let has = false
-      _currentChat.value.records.forEach((record) => {
-        if (record.id === recordId) {
-          has = true
-          record.predict_data = response ?? []
+  chatApi.get_chart_predict_data(recordId).then((response) => {
+    _currentChat.value.records.forEach((record) => {
+      if (record.id === recordId) {
+        record.predict_data = response ?? []
 
-          if (record.predict_data.length > 1) {
-            getChatData(recordId)
-          } else {
-            loadingData.value = false
-          }
+        if (record.predict_data.length > 1) {
+          getChatData(recordId)
         }
-      })
-      if (!has) {
-        _loading.value = false
       }
     })
-    .catch((e) => {
-      loadingData.value = false
-      console.error(e)
-    })
+  })
 }
 
 function getChatData(recordId?: number) {
-  loadingData.value = true
   chatApi
     .get_chart_data(recordId)
     .then((response) => {
       _currentChat.value.records.forEach((record) => {
         if (record.id === recordId) {
           record.data = response
+          console.log(record.data)
         }
       })
     })
     .finally(() => {
-      loadingData.value = false
       emits('scrollBottom')
     })
 }
@@ -277,9 +257,7 @@ defineExpose({ sendMessage, index: () => index.value, chatList: () => _chatList,
       v-if="message.record?.predict_data?.length > 0 && message.record?.data"
       ref="chartBlockRef"
       style="margin-top: 12px"
-      :record-id="recordId"
       :message="message"
-      :loading-data="loadingData"
       is-predict
     />
     <slot></slot>

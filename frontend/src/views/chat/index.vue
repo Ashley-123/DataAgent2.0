@@ -1,13 +1,37 @@
 <template>
-  <el-icon
+  <el-popover
     v-if="assistantStore.assistant && !assistantStore.pageEmbedded && assistantStore.type != 4"
-    class="show-history_icon"
-    :class="{ 'embedded-history-hidden': embeddedHistoryHidden }"
-    size="20"
-    @click="showFloatPopover"
+    :width="280"
+    placement="bottom-start"
+    popper-class="popover-chat_history popover-chat_history_small"
   >
-    <icon_sidebar_outlined></icon_sidebar_outlined>
-  </el-icon>
+    <template #reference>
+      <el-icon
+        class="show-history_icon"
+        :class="{ 'embedded-history-hidden': embeddedHistoryHidden }"
+        style=""
+        size="20"
+        @click="showFloatPopover"
+      >
+        <icon_sidebar_outlined></icon_sidebar_outlined>
+      </el-icon>
+    </template>
+    <ChatListContainer
+      ref="floatPopoverRef"
+      v-model:chat-list="chatList"
+      v-model:current-chat-id="currentChatId"
+      v-model:current-chat="currentChat"
+      v-model:loading="loading"
+      in-popover
+      :app-name="customName"
+      @go-empty="goEmpty"
+      @on-chat-created="onChatCreated"
+      @on-click-history="onClickHistory"
+      @on-chat-deleted="onChatDeleted"
+      @on-chat-renamed="onChatRenamed"
+      @on-click-side-bar-btn="hideSideBar"
+    />
+  </el-popover>
   <el-container class="chat-container no-padding">
     <el-aside
       v-if="(isCompletePage || pageEmbedded) && chatListSideBarShow"
@@ -43,7 +67,6 @@
         placement="bottom-start"
         popper-class="popover-chat_history"
         :popper-style="{ ...defaultFloatPopoverStyle }"
-        :disabled="isPhone"
       >
         <template #reference>
           <el-button link type="primary" class="icon-btn" @click="showSideBar">
@@ -115,18 +138,15 @@
           <div class="welcome-content">
             <template v-if="isCompletePage">
               <div class="greeting">
-                <img v-if="loginBg" height="32" width="32" :src="loginBg" alt="" />
-                <el-icon v-else size="32"
+                <img height="32" width="32" v-if="loginBg" :src="loginBg" alt="" />
+                <el-icon size="32" v-else
                   ><custom_small v-if="appearanceStore.themeColor !== 'default'"></custom_small>
                   <LOGO_fold v-else></LOGO_fold
                 ></el-icon>
-                {{ appearanceStore.pc_welcome ?? '你好，我是 Data Agent' }}
+                {{ t('qa.greeting') }}
               </div>
               <div class="sub">
-                {{
-                  appearanceStore.pc_welcome_desc ??
-                  '我可以查询数据、生成图表、检测数据异常、预测数据等赶快开启智能问数吧～'
-                }}
+                {{ t('qa.hint_description') }}
               </div>
             </template>
 
@@ -165,13 +185,13 @@
         <div v-else-if="computedMessages.length == 0 && loading" class="welcome-content-block">
           <div style="display: flex; align-items: center; height: 30px">
             <img
-              v-if="logoAssistant || loginBg"
               height="30"
               width="30"
+              v-if="logoAssistant || loginBg"
               :src="logoAssistant ? logoAssistant : loginBg"
               alt=""
             />
-            <el-icon v-else size="30"
+            <el-icon size="30" v-else
               ><custom_small v-if="appearanceStore.themeColor !== 'default'"></custom_small>
               <LOGO_fold v-else></LOGO_fold
             ></el-icon>
@@ -194,23 +214,23 @@
           >
             <template v-for="(message, _index) in computedMessages" :key="_index">
               <ChatRow
-                :logo-assistant="logoAssistant"
+                :logoAssistant="logoAssistant"
                 :current-chat="currentChat"
                 :msg="message"
                 :hide-avatar="message.first_chat"
               >
-                <!--                <RecommendQuestion-->
-                <!--                  v-if="message.role === 'assistant' && message.first_chat"-->
-                <!--                  ref="recommendQuestionRef"-->
-                <!--                  :current-chat="currentChat"-->
-                <!--                  :record-id="message.record?.id"-->
-                <!--                  :questions="message.recommended_question"-->
-                <!--                  :disabled="isTyping"-->
-                <!--                  :first-chat="message.first_chat"-->
-                <!--                  @click-question="quickAsk"-->
-                <!--                  @stop="onChatStop"-->
-                <!--                  @loading-over="loadingOver"-->
-                <!--                />-->
+                <RecommendQuestion
+                  v-if="message.role === 'assistant' && message.first_chat"
+                  ref="recommendQuestionRef"
+                  :current-chat="currentChat"
+                  :record-id="message.record?.id"
+                  :questions="message.recommended_question"
+                  :disabled="isTyping"
+                  :first-chat="message.first_chat"
+                  @click-question="quickAsk"
+                  @stop="onChatStop"
+                  @loading-over="loadingOver"
+                />
                 <UserChat v-if="message.role === 'user'" :message="message" />
                 <template v-if="message.role === 'assistant' && !message.first_chat">
                   <ChartAnswer
@@ -224,7 +244,6 @@
                     :chat-list="chatList"
                     :current-chat="currentChat"
                     :current-chat-id="currentChatId"
-                    :record-id="message.record?.id"
                     :loading="isTyping"
                     :message="message"
                     :reasoning-name="['sql_answer', 'chart_answer']"
@@ -232,8 +251,6 @@
                     @finish="onChartAnswerFinish"
                     @error="onChartAnswerError"
                     @stop="onChatStop"
-                    @data-loading-start="onDataLoadingStart"
-                    @data-loading-end="onDataLoadingEnd"
                   >
                     <ErrorInfo :error="message.record?.error" class="error-container" />
                     <template #tool>
@@ -339,7 +356,6 @@
                     :chat-list="chatList"
                     :current-chat="currentChat"
                     :current-chat-id="currentChatId"
-                    :record-id="message.record?.id"
                     :loading="isTyping"
                     :message="message"
                     @scroll-bottom="scrollToBottom"
@@ -375,19 +391,6 @@
                 {{ currentChat.datasource_name }}
               </span>
             </template>
-          </div>
-          <div v-if="computedMessages.length > 0 && currentChat.datasource" class="quick_question">
-            <quick-question
-              ref="quickQuestionRef"
-              :datasource-id="currentChat.datasource"
-              :current-chat="currentChat"
-              :record-id="computedMessages[0].record?.id"
-              :disabled="isTyping"
-              :first-chat="true"
-              @quick-ask="quickAsk"
-              @stop="onChatStop"
-              @loading-over="loadingOver"
-            ></quick-question>
           </div>
           <el-input
             ref="inputRef"
@@ -453,9 +456,8 @@ import { onClickOutside } from '@vueuse/core'
 import { useAppearanceStoreWithOut } from '@/stores/appearance'
 import { useUserStore } from '@/stores/user'
 import { debounce } from 'lodash-es'
-import { isMobile } from '@/utils/utils'
+
 import router from '@/router'
-import QuickQuestion from '@/views/chat/QuickQuestion.vue'
 const userStore = useUserStore()
 const props = defineProps<{
   startChatDsId?: number
@@ -484,9 +486,7 @@ const customName = computed(() => {
   return ''
 })
 const { t } = useI18n()
-const isPhone = computed(() => {
-  return isMobile()
-})
+
 const inputMessage = ref('')
 
 const chatListRef = ref()
@@ -675,7 +675,7 @@ function onChatRenamed(chat: Chat) {
 
 const chatListSideBarShow = ref<boolean>(true)
 function hideSideBar() {
-  if ((!isCompletePage.value && !props.pageEmbedded) || isPhone.value) {
+  if (!isCompletePage.value && !props.pageEmbedded) {
     floatPopoverVisible.value = false
     return
   }
@@ -683,10 +683,6 @@ function hideSideBar() {
 }
 
 function showSideBar() {
-  if (isPhone.value) {
-    showFloatPopover()
-    return
-  }
   chatListSideBarShow.value = true
 }
 
@@ -697,14 +693,13 @@ function onChatCreatedQuick(chat: ChatInfo) {
   onChatCreated(chat)
 }
 
-const recommendQuestionRef = ref()
-const quickQuestionRef = ref()
-
 function onChatCreated(chat: ChatInfo) {
-  if (chat.records.length === 1 && !chat.records[0].recommended_question) {
-    // do nothing
+  if (chat.records.length === 1) {
+    getRecommendQuestions(chat.records[0].id)
   }
 }
+
+const recommendQuestionRef = ref()
 
 function getRecommendQuestions(id?: number) {
   nextTick(() => {
@@ -755,15 +750,6 @@ function onChatStop() {
   isTyping.value = false
   console.debug('onChatStop')
 }
-//开始加载SQL更新动画
-function onDataLoadingStart() {
-  isTyping.value = true
-}
-//结束新SQL动画
-function onDataLoadingEnd() {
-  isTyping.value = false
-}
-
 const assistantPrepareSend = async () => {
   if (
     !isCompletePage.value &&
@@ -1005,7 +991,15 @@ const showFloatPopover = () => {
     floatPopoverVisible.value = true
   }
 }
-const registerClickOutside = () => {
+const assistantPrepareInit = () => {
+  if (isCompletePage.value || props.pageEmbedded) {
+    return
+  }
+  Object.assign(defaultFloatPopoverStyle.value, {
+    height: '100% !important',
+    inset: '0px auto auto 0px',
+  })
+  goEmpty()
   onClickOutside(floatPopoverRef, (event: any) => {
     if (floatPopoverVisible.value) {
       let parentElement: any = event.target
@@ -1022,17 +1016,6 @@ const registerClickOutside = () => {
       floatPopoverVisible.value = false
     }
   })
-}
-const assistantPrepareInit = () => {
-  if (isCompletePage.value || props.pageEmbedded) {
-    return
-  }
-  Object.assign(defaultFloatPopoverStyle.value, {
-    height: '100% !important',
-    inset: '0px auto auto 0px',
-  })
-  goEmpty()
-  registerClickOutside()
 }
 defineExpose({
   createNewChat,
@@ -1053,12 +1036,6 @@ function jumpCreatChat() {
 }
 
 onMounted(() => {
-  if (isPhone.value) {
-    chatListSideBarShow.value = false
-    if (props.pageEmbedded) {
-      registerClickOutside()
-    }
-  }
   getChatList(jumpCreatChat)
   assistantPrepareInit()
 })
@@ -1165,31 +1142,6 @@ onMounted(() => {
         left: 0;
         top: 0;
         padding-top: 12px;
-        padding-left: 12px;
-        z-index: 10;
-        background: transparent;
-        line-height: 22px;
-        font-size: 14px;
-        font-weight: 400;
-        border-top-right-radius: 16px;
-        border-top-left-radius: 16px;
-        color: rgba(100, 106, 115, 1);
-        display: flex;
-        align-items: center;
-
-        .name {
-          color: rgba(31, 35, 41, 1);
-        }
-      }
-
-      .quick_question {
-        width: 100px;
-        position: absolute;
-        margin-left: 1px;
-        margin-top: 1px;
-        left: 0;
-        bottom: 0;
-        padding-bottom: 12px;
         padding-left: 12px;
         z-index: 10;
         background: transparent;

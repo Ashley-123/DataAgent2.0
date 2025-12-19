@@ -11,7 +11,6 @@ import ICON_COLUMN from '@/assets/svg/chart/icon_dashboard_outlined.svg'
 import ICON_LINE from '@/assets/svg/chart/icon_chart-line.svg'
 import ICON_PIE from '@/assets/svg/chart/icon_pie_outlined.svg'
 import ICON_TABLE from '@/assets/svg/chart/icon_form_outlined.svg'
-import ICON_SCATTER from '@/assets/svg/chart/icon_scatter.svg'
 import icon_sql_outlined from '@/assets/svg/icon_sql_outlined.svg'
 import icon_export_outlined from '@/assets/svg/icon_export_outlined.svg'
 import icon_file_image_colorful from '@/assets/svg/icon_file-image_colorful.svg'
@@ -29,19 +28,15 @@ import { chatApi } from '@/api/chat'
 
 const props = withDefaults(
   defineProps<{
-    recordId?: number
     message: ChatMessage
     isPredict?: boolean
     chatType?: ChartTypes
     enlarge?: boolean
-    loadingData?: boolean
   }>(),
   {
-    recordId: undefined,
     isPredict: false,
     chatType: undefined,
     enlarge: false,
-    loadingData: false,
   }
 )
 
@@ -49,11 +44,7 @@ const { copy } = useClipboard({ legacy: true })
 const loading = ref<boolean>(false)
 const { t } = useI18n()
 const addViewRef = ref(null)
-// const emits = defineEmits(['exitFullScreen'])
-const emits = defineEmits<{
-  'exitFullScreen': []
-  're-execute-sql': [params: { recordId: number; sql: string }]
-}>()
+const emits = defineEmits(['exitFullScreen'])
 
 const dataObject = computed<{
   fields: Array<string>
@@ -169,11 +160,6 @@ const chartTypeList = computed(() => {
           value: 'line',
           name: t('chat.chart_type.line'),
           icon: ICON_LINE,
-        }),
-        _list.push({
-          value: 'scatter',
-          name: t('chat.chart_type.scatter'),
-          icon: ICON_SCATTER,
         })
         break
       case 'pie':
@@ -220,11 +206,6 @@ const sqlShow = ref(false)
 function showSql() {
   sqlShow.value = true
 }
-function handleReExecuteSQL(params: { recordId: number; sql: string }) {
-  // 将事件向上传递给父组件 ChartAnswer
-  emits('re-execute-sql', params)
-  
-}
 
 function addToDashboard() {
   const recordeInfo = {
@@ -259,10 +240,10 @@ function copyText() {
 const exportRef = ref()
 
 function exportToExcel() {
-  if (chartRef.value && props.recordId) {
+  if (chartRef.value) {
     loading.value = true
     chatApi
-      .export2Excel(props.recordId)
+      .export2Excel({ ...chartRef.value?.getExcelData(), name: chartObject.value.title })
       .then((res) => {
         const blob = new Blob([res], {
           type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -490,7 +471,6 @@ watch(
           :chart-type="chartType"
           :message="message"
           :data="data"
-          :loading-data="loadingData"
         />
       </div>
       <div v-if="dataObject.limit" class="over-limit-hint">
@@ -511,10 +491,8 @@ watch(
       <ChartBlock
         v-if="dialogVisible"
         :message="message"
-        :record-id="recordId"
         :is-predict="isPredict"
         :chat-type="chartType"
-        :loading-data="loadingData"
         enlarge
         @exit-full-screen="onExitFullScreen"
       />
@@ -530,10 +508,8 @@ watch(
       <div class="sql-block">
         <SQLComponent
           v-if="message.record?.sql"
-          v-model:sql="message.record.sql"
-          :record-id="message.record?.id"
+          :sql="message.record?.sql"
           style="margin-top: 12px"
-          @re-execute-sql="handleReExecuteSQL"
         />
         <el-button v-if="message.record?.sql" circle class="input-icon" @click="copyText">
           <el-icon size="16">

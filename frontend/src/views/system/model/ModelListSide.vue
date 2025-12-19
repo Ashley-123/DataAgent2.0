@@ -1,11 +1,9 @@
 <script lang="ts" setup>
 import { ref, computed } from 'vue'
-import { useI18n } from 'vue-i18n'
 import icon_searchOutline_outlined from '@/assets/svg/icon_search-outline_outlined.svg'
 import EmptyBackground from '@/views/dashboard/common/EmptyBackground.vue'
 import { supplierList } from '@/entity/supplier'
 
-const { t } = useI18n()
 withDefaults(
   defineProps<{
     activeName: string
@@ -18,12 +16,7 @@ const keywords = ref('')
 
 const modelListWithSearch = computed(() => {
   if (!keywords.value) return supplierList
-  return supplierList.filter((ele) => {
-    const translatedName = t(ele.i18nKey).toLowerCase()
-    const originalName = ele.name.toLowerCase()
-    const searchTerm = keywords.value.toLowerCase()
-    return translatedName.includes(searchTerm) || originalName.includes(searchTerm)
-  })
+  return supplierList.filter((ele) => ele.name.toLowerCase().includes(keywords.value.toLowerCase()))
 })
 const emits = defineEmits(['clickModel'])
 const handleModelClick = (item: any) => {
@@ -54,7 +47,7 @@ const handleModelClick = (item: any) => {
         @click="handleModelClick(ele)"
       >
         <img width="18px" height="18px" :src="ele.icon" />
-        <span class="name">{{ $t(ele.i18nKey) }}</span>
+        <span class="name">{{ ele.name }}</span>
       </div>
       <EmptyBackground
         v-if="!!keywords && !modelListWithSearch.length"

@@ -10,27 +10,24 @@ const props = defineProps<{
   chartType: ChartTypes
   message: ChatMessage
   data: Array<{ [key: string]: any }>
-  loadingData?: boolean
 }>()
 
 const { t } = useI18n()
 
 const chartObject = computed<{
   type: ChartTypes
-  title?: string
-  axis?: {
-    x?: { name: string; value: string }
-    y?: { name: string; value: string }
-    series?: { name: string; value: string }
+  title: string
+  axis: {
+    x: { name: string; value: string }
+    y: { name: string; value: string }
+    series: { name: string; value: string }
   }
-  columns?: Array<{ name: string; value: string }>
-  // for 'spec' charts
-  options?: any
+  columns: Array<{ name: string; value: string }>
 }>(() => {
   if (props.message?.record?.chart) {
     return JSON.parse(props.message.record.chart)
   }
-  return {} as any
+  return {}
 })
 
 const xAxis = computed(() => {
@@ -96,9 +93,8 @@ defineExpose({
       :y="yAxis"
       :series="series"
       :data="data"
-      :options="chartObject?.options"
     />
-    <el-empty v-else :description="loadingData ? t('chat.loading_data') : t('chat.no_data')" />
+    <el-empty v-else :description="t('chat.no_data')" />
   </div>
 </template>
 

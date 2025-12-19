@@ -4,7 +4,7 @@
       class="main-menu"
       :class="{ 'main-menu-sidebar': !topLayout, 'main-menu-topbar': topLayout }"
     >
-      <div class="logo">Data Agent</div>
+      <div class="logo">SQLBot</div>
 
       <!-- <div v-if="!topLayout || !showSubmenu"
            :class="{ 'workspace-area': !topLayout, 'topbar-workspace-area': topLayout }">
@@ -235,10 +235,9 @@ const resolveIcon = (iconName: any) => {
 const menuSelect = (e: any) => {
   router.push(e.index)
 }
-const logout = async () => {
-  if (!(await userStore.logout())) {
-    router.push('/login')
-  }
+const logout = () => {
+  userStore.logout()
+  router.push('/login')
 }
 const toSystem = () => {
   router.push('/system')

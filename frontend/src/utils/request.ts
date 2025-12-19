@@ -76,6 +76,14 @@ class HttpService {
     // Request interceptor
     this.instance.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
+        // Handle FormData - let browser set Content-Type automatically
+        if (config.data instanceof FormData) {
+          // Remove Content-Type header for FormData to let browser set it with boundary
+          if (config.headers) {
+            delete config.headers['Content-Type']
+          }
+        }
+        
         // Add auth token
         const token = wsCache.get('user.token')
         if (token && config.headers) {
@@ -100,9 +108,6 @@ class HttpService {
           if (!assistantStore.getType || assistantStore.getType === 2) {
             config.headers['X-SQLBOT-ASSISTANT-ONLINE'] = assistantStore.getOnline
           }
-          if (assistantStore.getHostOrigin) {
-            config.headers['X-SQLBOT-HOST-ORIGIN'] = assistantStore.getHostOrigin
-          }
         }
         const locale = getLocale()
         if (locale) {
@@ -114,6 +119,7 @@ class HttpService {
           /* const val = mapping[locale] || locale */
           config.headers['Accept-Language'] = locale
         }
+        // License functionality removed - skip xpack_static requests
         if (config.url?.includes('/xpack_static/') && config.baseURL) {
           config.baseURL = config.baseURL.replace('/api/v1', '')
           // Skip auth for xpack_static requests
@@ -247,6 +253,7 @@ class HttpService {
 
     // Show error using UI library (e.g., Element Plus, Ant Design)
     console.error(errorMessage)
+    // License functionality removed
     /* if (errorMessage?.includes('Invalid license key salt')) {
       showLicenseKeyError()
     } */
@@ -304,9 +311,6 @@ class HttpService {
         heads['X-SQLBOT-ASSISTANT-CERTIFICATE'] = btoa(
           encodeURIComponent(assistantStore.getCertificate)
         )
-      }
-      if (assistantStore.getHostOrigin) {
-        heads['X-SQLBOT-HOST-ORIGIN'] = assistantStore.getHostOrigin
       }
       if (!assistantStore.getType || assistantStore.getType === 2) {
         heads['X-SQLBOT-ASSISTANT-ONLINE'] = assistantStore.getOnline

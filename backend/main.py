@@ -1,6 +1,8 @@
 import os
+import debugpy
 
-import sqlbot_xpack
+# License functionality removed
+# import sqlbot_xpack
 from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.concurrency import asynccontextmanager
@@ -22,10 +24,41 @@ from common.core.sqlbot_cache import init_sqlbot_cache
 from common.utils.embedding_threads import fill_empty_terminology_embeddings, fill_empty_data_training_embeddings
 from common.utils.utils import SQLBotLogUtil
 
+# 环境变量控制调试
+DEBUG_ENABLED = os.getenv("DEBUG_ENABLED", "false").lower() == "true"
+DEBUG_PORT = int(os.getenv("DEBUG_PORT", "5678"))
+
+print(f"🔧 调试模式: {DEBUG_ENABLED}")
+print(f"🔧 调试端口: {DEBUG_PORT}")
+
+# 启用调试（仅在调试模式下运行）
+def setup_debugging():
+    if not DEBUG_ENABLED:
+        print("🔧 调试模式未启用")
+        return
+    
+    try:
+        # 检查是否在调试模式下运行
+        debugpy.listen(("0.0.0.0", DEBUG_PORT))
+        print(f"🎯 调试器已启动，等待连接... (端口 {DEBUG_PORT})")
+        
+        # 可选：设置断点自动等待连接
+        DEBUG_WAIT_FOR_CLIENT = os.getenv("DEBUG_WAIT_FOR_CLIENT", "false").lower() == "true"
+        if DEBUG_WAIT_FOR_CLIENT:
+            debugpy.wait_for_client()
+            print("🔌 调试器已连接")
+    except Exception as e:
+        print(f"❌ 调试器设置失败: {e}")
+
+# 在应用启动前调用
+setup_debugging()
 
 def run_migrations():
-    alembic_cfg = Config("alembic.ini")
-    command.upgrade(alembic_cfg, "head")
+    try:
+        alembic_cfg = Config("alembic.ini")
+        command.upgrade(alembic_cfg, "head")
+    except Exception as e:
+        SQLBotLogUtil.error(f"Migration failed: {e}")
 
 
 def init_terminology_embedding_data():
@@ -42,15 +75,20 @@ def init_table_and_ds_embedding():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    run_migrations()
-    init_sqlbot_cache()
-    init_dynamic_cors(app)
-    init_terminology_embedding_data()
-    init_data_training_embedding_data()
-    init_table_and_ds_embedding()
-    SQLBotLogUtil.info("✅ SQLBot 初始化完成")
-    await sqlbot_xpack.core.clean_xpack_cache()
-    await async_model_info()  # 异步加密已有模型的密钥和地址
+    try:
+        run_migrations()
+        init_sqlbot_cache()
+        init_dynamic_cors(app)
+        init_terminology_embedding_data()
+        init_data_training_embedding_data()
+        init_table_and_ds_embedding()
+        SQLBotLogUtil.info("✅ SQLBot 初始化完成")
+        await async_model_info()  # 异步加密已有模型的密钥和地址
+    except Exception as e:
+        SQLBotLogUtil.error(f"Initialization failed: {e}")
+        SQLBotLogUtil.info("✅ SQLBot 初始化完成 (部分功能受限)")
+    # License functionality removed
+    # await sqlbot_xpack.core.clean_xpack_cache()
     yield
     SQLBotLogUtil.info("SQLBot 应用关闭")
 
@@ -94,7 +132,7 @@ if settings.all_cors_origins:
         allow_headers=["*"],
     )
 
-app.add_middleware(TokenMiddleware)
+app.add_middleware(TokenMiddleware)  # 重新启用认证中间件以设置current_user
 app.add_middleware(ResponseMiddleware)
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
@@ -104,21 +142,10 @@ app.add_exception_handler(Exception, exception_handler.global_exception_handler)
 
 mcp.setup_server()
 
-# Mount xpack_static directory from sqlbot_xpack package
-try:
-    # Get the path of sqlbot_xpack package
-    xpack_file = sqlbot_xpack.__file__
-    xpack_dir = os.path.dirname(xpack_file)
-    xpack_static_path = os.path.join(xpack_dir, "static")
-    if os.path.exists(xpack_static_path):
-        app.mount("/xpack_static", StaticFiles(directory=xpack_static_path), name="xpack_static")
-        SQLBotLogUtil.info(f"✅ Mounted xpack_static from: {xpack_static_path}")
-    else:
-        SQLBotLogUtil.warning(f"⚠️ xpack_static directory not found at: {xpack_static_path}")
-except Exception as e:
-    SQLBotLogUtil.warning(f"⚠️ Failed to mount xpack_static: {e}")
-
-sqlbot_xpack.init_fastapi_app(app)
+# License functionality removed
+# sqlbot_xpack.init_fastapi_app(app)
+# 添加前端静态文件服务  
+app.mount("/", StaticFiles(directory="/opt/sqlbot/frontend/dist", html=True), name="static")
 if __name__ == "__main__":
     import uvicorn
 

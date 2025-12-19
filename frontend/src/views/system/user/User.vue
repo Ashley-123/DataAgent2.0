@@ -76,11 +76,7 @@
         </el-table-column>
         <el-table-column prop="email" show-overflow-tooltip :label="$t('user.email')" />
         <!-- <el-table-column prop="phone" :label="$t('user.phone_number')" width="280" /> -->
-        <el-table-column prop="origin" :label="$t('user.user_source')" width="120">
-          <template #default="scope">
-            <span>{{ formatUserOrigin(scope.row.origin) }}</span>
-          </template>
-        </el-table-column>
+        <!-- <el-table-column prop="user_source" :label="$t('user.user_source')" width="280" /> -->
         <el-table-column
           show-overflow-tooltip
           prop="oid_list"
@@ -240,19 +236,6 @@
     size="600px"
     :before-close="onFormClose"
   >
-    <div style="margin-bottom: 12px" class="down-template">
-      <span class="icon-span">
-        <el-icon>
-          <Icon name="icon_warning_filled"><icon_warning_filled class="svg-icon" /></Icon>
-        </el-icon>
-      </span>
-      <div class="down-template-content" style="align-items: center">
-        <span>{{ t('prompt.default_password', { msg: defaultPwd }) }}</span>
-        <el-button style="margin-left: 4px" size="small" text @click="copyPassword">{{
-          t('datasource.copy')
-        }}</el-button>
-      </div>
-    </div>
     <el-form
       ref="termFormRef"
       :model="state.form"
@@ -429,11 +412,13 @@ const filterOption = ref<any[]>([
     type: 'enum',
     option: [
       { id: '0', name: t('user.local_creation') },
-      { id: '1', name: 'CAS' },
-      { id: '2', name: 'OIDC' },
-      { id: '3', name: 'LDAP' },
-      { id: '4', name: 'OAuth2' },
-      { id: '5', name: 'SAML2' },
+      // { id: 1, name: 'LDAP' },
+      // { id: 2, name: 'OIDC' },
+      // { id: 3, name: 'CAS' },
+      // { id: 9, name: 'OAuth2' },
+      // { id: 4, name: t('user.feishu') },
+      // { id: 5, name: t('user.dingtalk') },
+      // { id: 6, name: t('user.wechat_for_business') },
     ],
     field: 'origins',
     title: t('user.user_source'),
@@ -527,16 +512,6 @@ const setPopoverRef = (el: any, row: any) => {
 }
 
 const copyText = () => {
-  copy(defaultPwd.value)
-    .then(function () {
-      ElMessage.success(t('embedded.copy_successful'))
-    })
-    .catch(function () {
-      ElMessage.error(t('embedded.copy_failed'))
-    })
-}
-
-const copyPassword = () => {
   copy(defaultPwd.value)
     .then(function () {
       ElMessage.success(t('embedded.copy_successful'))
@@ -825,13 +800,6 @@ const loadDefaultPwd = () => {
       defaultPwd.value = res
     }
   })
-}
-const formatUserOrigin = (origin?: number) => {
-  if (!origin) {
-    return t('user.local_creation')
-  }
-  const originArray = ['CAS', 'OIDC', 'LDAP', 'OAuth2', 'SAML2']
-  return originArray[origin - 1]
 }
 onMounted(() => {
   workspaceList().then((res) => {

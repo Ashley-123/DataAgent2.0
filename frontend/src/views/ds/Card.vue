@@ -7,7 +7,6 @@ import { computed, ref, unref } from 'vue'
 import { ClickOutside as vClickOutside } from 'element-plus-secondary'
 import { dsTypeWithImg } from './js/ds-type'
 import edit from '@/assets/svg/icon_edit_outlined.svg'
-import icon_recommended_problem from '@/assets/svg/icon_recommended_problem.svg'
 import { datasourceApi } from '@/api/datasource.ts'
 
 const props = withDefaults(
@@ -28,23 +27,12 @@ const props = withDefaults(
   }
 )
 
-const emits = defineEmits([
-  'edit',
-  'del',
-  'question',
-  'dataTableDetail',
-  'showTable',
-  'recommendation',
-])
+const emits = defineEmits(['edit', 'del', 'question', 'dataTableDetail', 'showTable'])
 const icon = computed(() => {
   return (dsTypeWithImg.find((ele) => props.type === ele.type) || {}).img
 })
 const handleEdit = () => {
   emits('edit')
-}
-
-const handleRecommendation = () => {
-  emits('recommendation')
 }
 
 const handleDel = () => {
@@ -126,7 +114,7 @@ const onClickOutside = () => {
           virtual-triggering
           trigger="click"
           :teleported="false"
-          popper-class="popover-card_ds"
+          popper-class="popover-card"
           placement="bottom-end"
         >
           <div class="content">
@@ -135,12 +123,6 @@ const onClickOutside = () => {
                 <edit></edit>
               </el-icon>
               {{ $t('datasource.edit') }}
-            </div>
-            <div class="item" @click.stop="handleRecommendation">
-              <el-icon size="16">
-                <icon_recommended_problem></icon_recommended_problem>
-              </el-icon>
-              {{ $t('datasource.recommended_problem_configuration') }}
             </div>
             <div class="item" @click.stop="handleDel">
               <el-icon size="16">
@@ -273,11 +255,11 @@ const onClickOutside = () => {
 </style>
 
 <style lang="less">
-.popover-card_ds.popover-card_ds.popover-card_ds {
+.popover-card.popover-card.popover-card {
   box-shadow: 0px 4px 8px 0px #1f23291a;
   border-radius: 4px;
   border: 1px solid #dee0e3;
-  width: fit-content !important;
+  width: 120px !important;
   min-width: 120px !important;
   padding: 0;
 
@@ -287,7 +269,7 @@ const onClickOutside = () => {
     &::after {
       position: absolute;
       content: '';
-      top: 80px !important;
+      top: 40px;
       left: 0;
       width: 100%;
       height: 1px;
@@ -296,7 +278,7 @@ const onClickOutside = () => {
 
     .item {
       position: relative;
-      padding: 0 12px;
+      padding-left: 12px;
       height: 40px;
       display: flex;
       align-items: center;
@@ -315,7 +297,7 @@ const onClickOutside = () => {
 
       &::after {
         content: '';
-        width: calc(100% - 8px);
+        width: 112px;
         height: 32px;
         border-radius: 4px;
         position: absolute;

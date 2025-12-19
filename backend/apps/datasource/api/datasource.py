@@ -15,6 +15,7 @@ from apps.db.engine import get_engine_conn
 from common.core.config import settings
 from common.core.deps import SessionDep, CurrentUser, Trans
 from common.utils.utils import SQLBotLogUtil
+from common.core.decorators import require_space_admin
 from ..crud.datasource import get_datasource_list, check_status, create_ds, update_ds, delete_ds, getTables, getFields, \
     execSql, update_table_and_fields, getTablesByDs, chooseTables, preview, updateTable, updateField, get_ds, fieldEnum, \
     check_status_by_id
@@ -60,6 +61,7 @@ async def check_by_id(session: SessionDep, trans: Trans, ds_id: int):
 
 
 @router.post("/add", response_model=CoreDatasource)
+@require_space_admin
 async def add(session: SessionDep, trans: Trans, user: CurrentUser, ds: CreateDatasource):
     def inner():
         return create_ds(session, trans, user, ds)
@@ -76,6 +78,7 @@ async def choose_tables(session: SessionDep, trans: Trans, id: int, tables: List
 
 
 @router.post("/update", response_model=CoreDatasource)
+@require_space_admin
 async def update(session: SessionDep, trans: Trans, user: CurrentUser, ds: CoreDatasource):
     def inner():
         return update_ds(session, trans, user, ds)
@@ -84,6 +87,7 @@ async def update(session: SessionDep, trans: Trans, user: CurrentUser, ds: CoreD
 
 
 @router.post("/delete/{id}", response_model=CoreDatasource)
+@require_space_admin
 async def delete(session: SessionDep, id: int):
     return delete_ds(session, id)
 
@@ -288,26 +292,7 @@ async def upload_excel(session: SessionDep, file: UploadFile = File(...)):
         sheets = []
         engine = get_engine_conn()
         if filename.endswith(".csv"):
-            # 尝试多种编码读取 CSV 文件
-            encodings = ['utf-8', 'gbk', 'gb2312', 'gb18030', 'big5', 'latin-1', 'cp1252', 'iso-8859-1']
-            df = None
-            last_error = None
-
-            for encoding in encodings:
-                try:
-                    df = pd.read_csv(save_path, engine='c', encoding=encoding)
-                    break  # 成功读取，跳出循环
-                except (UnicodeDecodeError, UnicodeError) as e:
-                    last_error = e
-                    continue  # 尝试下一个编码
-                except Exception as e:
-                    # 其他错误（如文件格式错误），直接抛出
-                    raise HTTPException(400, f"Failed to read CSV file: {str(e)}")
-
-            if df is None:
-                raise HTTPException(400,
-                                    f"Failed to decode CSV file. Tried encodings: {', '.join(encodings)}. Last error: {str(last_error)}")
-
+            df = pd.read_csv(save_path, engine='c')
             tableName = f"sheet1_{hashlib.sha256(uuid.uuid4().bytes).hexdigest()[:10]}"
             sheets.append({"tableName": tableName, "tableComment": ""})
             insert_pg(df, tableName, engine)
@@ -325,86 +310,6 @@ async def upload_excel(session: SessionDep, file: UploadFile = File(...)):
         return {"filename": filename, "sheets": sheets}
 
     return await asyncio.to_thread(inner)
-
-
-@router.post("/uploadExcelBatch")
-async def upload_excel_batch(session: SessionDep, files: List[UploadFile] = File(...)):
-    """
-    批量上传 Excel/CSV 文件
-    """
-    ALLOWED_EXTENSIONS = {"xlsx", "xls", "csv"}
-    all_sheets = []
-    all_filenames = []
-    errors = []
-    
-    for file in files:
-        try:
-            # 验证文件格式
-            if not file.filename.lower().endswith(tuple(ALLOWED_EXTENSIONS)):
-                errors.append(f"{file.filename}: 不支持的文件格式，仅支持 .xlsx/.xls/.csv")
-                continue
-            
-            # 保存文件
-            os.makedirs(path, exist_ok=True)
-            filename = f"{file.filename.split('.')[0]}_{hashlib.sha256(uuid.uuid4().bytes).hexdigest()[:10]}.{file.filename.split('.')[1]}"
-            save_path = os.path.join(path, filename)
-            
-            with open(save_path, "wb") as f:
-                f.write(await file.read())
-            
-            # 处理文件
-            def process_file():
-                sheets = []
-                engine = get_engine_conn()
-                
-                if filename.endswith(".csv"):
-                    # 尝试多种编码读取 CSV 文件
-                    encodings = ['utf-8', 'gbk', 'gb2312', 'gb18030', 'big5', 'latin-1', 'cp1252', 'iso-8859-1']
-                    df = None
-                    last_error = None
-                    
-                    for encoding in encodings:
-                        try:
-                            df = pd.read_csv(save_path, engine='c', encoding=encoding)
-                            break
-                        except (UnicodeDecodeError, UnicodeError) as e:
-                            last_error = e
-                            continue
-                        except Exception as e:
-                            raise HTTPException(400, f"Failed to read CSV file: {str(e)}")
-                    
-                    if df is None:
-                        raise HTTPException(400,
-                                          f"Failed to decode CSV file. Tried encodings: {', '.join(encodings)}. Last error: {str(last_error)}")
-                    
-                    tableName = f"sheet1_{hashlib.sha256(uuid.uuid4().bytes).hexdigest()[:10]}"
-                    sheets.append({"tableName": tableName, "tableComment": "", "filename": file.filename})
-                    insert_pg(df, tableName, engine)
-                else:
-                    sheet_names = pd.ExcelFile(save_path).sheet_names
-                    for sheet_name in sheet_names:
-                        tableName = f"{sheet_name}_{hashlib.sha256(uuid.uuid4().bytes).hexdigest()[:10]}"
-                        sheets.append({"tableName": tableName, "tableComment": "", "filename": file.filename})
-                        df = pd.read_excel(save_path, sheet_name=sheet_name, engine='calamine')
-                        insert_pg(df, tableName, engine)
-                
-                return sheets
-            
-            file_sheets = await asyncio.to_thread(process_file)
-            all_sheets.extend(file_sheets)
-            all_filenames.append(file.filename)
-            
-        except Exception as e:
-            errors.append(f"{file.filename}: {str(e)}")
-            continue
-    
-    return {
-        "filenames": all_filenames,
-        "sheets": all_sheets,
-        "errors": errors,
-        "success_count": len(all_filenames),
-        "error_count": len(errors)
-    }
 
 
 def insert_pg(df, tableName, engine):

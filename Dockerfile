@@ -6,11 +6,17 @@ ENV APP_HOME=${SQLBOT_HOME}/app
 ENV UI_HOME=${SQLBOT_HOME}/frontend
 ENV DEBIAN_FRONTEND=noninteractive
 
+ENV CI=true
+ENV PNPM_FORCE=true
+
 RUN mkdir -p ${APP_HOME} ${UI_HOME}
 
 COPY frontend /tmp/frontend
-RUN cd /tmp/frontend && npm install && npm run build && mv dist ${UI_HOME}/dist
-
+RUN npm install -g pnpm@10.14.0 \
+    && cd /tmp/frontend \
+    && pnpm install \
+    && pnpm run build \
+    && mv dist ${UI_HOME}/dist
 
 FROM registry.cn-qingdao.aliyuncs.com/dataease/sqlbot-base:latest AS sqlbot-builder
 # Set build environment variables
@@ -23,8 +29,6 @@ ENV PATH="${APP_HOME}/.venv/bin:$PATH"
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
 ENV DEBIAN_FRONTEND=noninteractive
-ARG UV_HTTP_TIMEOUT=300
-ENV UV_HTTP_TIMEOUT=${UV_HTTP_TIMEOUT}
 
 # Create necessary directories
 RUN mkdir -p ${APP_HOME} ${UI_HOME}
@@ -50,22 +54,24 @@ FROM registry.cn-qingdao.aliyuncs.com/dataease/sqlbot-base:latest AS ssr-builder
 
 WORKDIR /app
 
-# Install build dependencies
+# 配置 npm 镜像源和网络设置
+RUN npm config set fund false \
+    && npm config set audit false \
+    && npm config set progress false
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential python3 pkg-config \
     libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev librsvg2-dev \
     libpixman-1-dev libfreetype6-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# configure npm
-RUN npm config set fund false \
-    && npm config set audit false \
-    && npm config set progress false \
-    && npm config set unsafe-perm true
+# 先只复制 package.json 进行依赖安装（利用 Docker 缓存）
+COPY g2-ssr/package.json /app/
+RUN npm install
 
-COPY g2-ssr/app.js g2-ssr/package.json /app/
+# 再复制其他文件
+COPY g2-ssr/app.js /app/
 COPY g2-ssr/charts/* /app/charts/
-RUN npm install --build-from-source
 
 # Runtime stage
 FROM --platform=${BUILDPLATFORM} registry.cn-qingdao.aliyuncs.com/dataease/sqlbot-python-pg:latest
@@ -83,6 +89,8 @@ ENV POSTGRES_DB=sqlbot
 ENV POSTGRES_USER=root
 ENV POSTGRES_PASSWORD=Password123@pg
 
+ENV LD_LIBRARY_PATH="/opt/sqlbot/db_client/oracle_instant_client:${LD_LIBRARY_PATH}"
+
 # Copy necessary files from builder
 COPY start.sh /opt/sqlbot/app/start.sh
 COPY g2-ssr/*.ttf /usr/share/fonts/truetype/liberation/
@@ -92,6 +100,7 @@ COPY --from=vector-model /opt/maxkb/app/model /opt/sqlbot/models
 
 WORKDIR ${SQLBOT_HOME}/app
 
+RUN mv ${SQLBOT_HOME}/app/data/models ${SQLBOT_HOME}/models
 RUN mkdir -p /opt/sqlbot/images /opt/sqlbot/g2-ssr
 
 EXPOSE 3000 8000 8001 5432

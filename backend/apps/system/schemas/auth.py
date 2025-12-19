@@ -1,5 +1,4 @@
 
-from typing import Optional
 from pydantic import BaseModel
 from enum import Enum
 
@@ -18,4 +17,3 @@ class CacheName(Enum):
     ASSISTANT_DS = "assistant:ds"
     def __str__(self):
         return self.value
-    

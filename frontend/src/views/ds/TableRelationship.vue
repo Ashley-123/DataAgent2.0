@@ -155,11 +155,9 @@ const initGraph = () => {
     mousewheel: {
       enabled: true,
       modifiers: ['ctrl', 'meta'],
-      factor: 1.05,
     },
     container: document.getElementById('container')!,
     autoResize: true,
-    panning: true,
     connecting: {
       allowBlank: false,
       router: {

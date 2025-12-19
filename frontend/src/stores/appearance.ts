@@ -1,13 +1,14 @@
 import { defineStore } from 'pinia'
 import { store } from '@/stores/index'
 // import { defaultFont, list } from '@/api/font'
-import { request } from '@/utils/request'
+// import { request } from '@/utils/request'
 
 import { setTitle, setCurrentColor } from '@/utils/utils'
 
 const basePath = import.meta.env.VITE_API_BASE_URL
 const baseUrl = basePath + '/system/appearance/picture/'
 import { isBtnShow } from '@/utils/utils'
+import type { LinkHTMLAttributes } from 'vue'
 interface AppearanceState {
   themeColor?: string
   customColor?: string
@@ -27,8 +28,6 @@ interface AppearanceState {
   name?: string
   foot?: string
   showSlogan?: string
-  pc_welcome?: string
-  pc_welcome_desc?: string
   footContent?: string
   loaded: boolean
   showDemoTips?: boolean
@@ -36,10 +35,10 @@ interface AppearanceState {
   fontList?: Array<{ name: string; id: string; isDefault: boolean }>
 }
 
-interface KeyValue {
-  pkey: string
-  pval: string
-}
+// interface KeyValue {
+//   pkey: string
+//   pval: string
+// }
 // const { wsCache } = useCache()
 export const useAppearanceStore = defineStore('appearanceStore', {
   state: (): AppearanceState => {
@@ -60,15 +59,13 @@ export const useAppearanceStore = defineStore('appearanceStore', {
       login: '',
       slogan: '',
       web: '',
-      name: 'Data Agent',
+      name: 'SQLBot',
       foot: 'false',
       footContent: '',
       loaded: false,
       showDemoTips: false,
       demoTipsContent: '',
       fontList: [],
-      pc_welcome: undefined,
-      pc_welcome_desc: undefined,
     }
   },
   getters: {
@@ -253,28 +250,29 @@ export const useAppearanceStore = defineStore('appearanceStore', {
       // if (!isDataEaseBi) {
       //   document.title = ''
       // }
-      const obj = LicenseGenerator.getLicense()
+      // License functionality removed
+      // const obj = LicenseGenerator.getLicense()
+      const obj = { theme: 'default', status: 'valid' } // Default fallback
       if (obj?.status !== 'valid') {
-        setCurrentColor('#f35e4b')
-        document.title = 'Data Agent'
+        setCurrentColor('#1CBA90')
+        document.title = 'SQLBot'
         setLinkIcon()
         return
       }
-      const resData = await request.get('/system/appearance/ui')
-      this.loaded = true
-      if (!resData?.length) {
-        setCurrentColor('#f35e4b')
-        setLinkIcon()
-        return
-      }
+      // const resData = await request.get('/system/appearance/ui')
+      // this.loaded = true
+      // if (!resData?.length) {
+      //   return
+      // }
       const data: AppearanceState = { loaded: false }
-      resData.forEach((item: KeyValue) => {
-        ;(
-          data as {
-            [key: string]: any
-          }
-        )[item.pkey] = item.pval
-      })
+      // resData.forEach((item: KeyValue) => {
+      //   ;(
+      //     data as {
+      //       [key: string]: any
+      //     }
+      //   )[item.pkey] = item.pval
+      // })
+
       this.navigate = data.navigate
       this.help = data.help
       this.showDoc = data.showDoc
@@ -282,8 +280,6 @@ export const useAppearanceStore = defineStore('appearanceStore', {
       this.navigateBg = data.navigateBg
       this.themeColor = data.themeColor
       this.customColor = data.customColor
-      this.pc_welcome = data.pc_welcome
-      this.pc_welcome_desc = data.pc_welcome_desc
       const currentColor =
         this.themeColor === 'custom' && this.customColor
           ? this.customColor
@@ -301,8 +297,8 @@ export const useAppearanceStore = defineStore('appearanceStore', {
         document.title = this.name
         setTitle(this.name)
       } else {
-        document.title = 'Data Agent'
-        setTitle('Data Agent')
+        document.title = 'SQLBot'
+        setTitle('SQLBot')
       }
       setLinkIcon(this.web)
     },
@@ -310,7 +306,7 @@ export const useAppearanceStore = defineStore('appearanceStore', {
 })
 
 const setLinkIcon = (linkWeb?: string) => {
-  const link = document.querySelector('link[rel="icon"]') as HTMLLinkElement
+  const link = document.querySelector('link[rel="icon"]') as LinkHTMLAttributes
   if (link) {
     if (linkWeb) {
       link['href'] = baseUrl + linkWeb

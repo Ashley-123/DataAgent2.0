@@ -341,13 +341,16 @@ const check = () => {
     }
   })
 }
-const getSchema = debounce(() => {
+
+const getSchema = () => {
   schemaList.value = []
   const requestObj = buildConf()
   datasourceApi.getSchema(requestObj).then((res: any) => {
-    schemaList.value = (res || []).map((item: any) => ({ label: item, value: item }))
+    for (let item of res) {
+      schemaList.value.push({ label: item, value: item })
+    }
   })
-}, 300)
+}
 
 onBeforeUnmount(() => (saveLoading.value = false))
 

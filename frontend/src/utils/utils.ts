@@ -104,7 +104,7 @@ export const isBtnShow = (val: string) => {
 }
 
 export const setTitle = (title?: string) => {
-  document.title = title || 'Data Agent'
+  document.title = title || 'SQLBot'
 }
 
 function rgbToHex(r: any, g: any, b: any) {
@@ -203,63 +203,4 @@ export const setCurrentColor = (color: any, element: HTMLElement = document.docu
       .mix(new colorTree('000000'), new colorTree(currentColor.substr(1)), { value: 15 })
       .toRGB()
   )
-}
-export const getQueryString = (name: string) => {
-  const reg = new RegExp('(^|&)' + name + '=([^&]*)(&|$)', 'i')
-  const r = window.location.search.substr(1).match(reg)
-  if (r != null) {
-    return unescape(r[2])
-  }
-  return null
-}
-
-export const getUrlParams = () => {
-  const urlParams = new URLSearchParams(window.location.search) as any
-  return Object.fromEntries(urlParams)
-}
-
-export const isLarkPlatform = () => {
-  return !!getQueryString('state') && !!getQueryString('code')
-}
-
-export const isPlatformClient = () => {
-  return !!getQueryString('client') || getQueryString('state')?.includes('client')
-}
-
-export const checkPlatform = () => {
-  const flagArray = ['/casbi', 'oidcbi']
-  const pathname = window.location.pathname
-  if (
-    !flagArray.some((flag) => pathname.includes(flag)) &&
-    !isLarkPlatform() &&
-    !isPlatformClient()
-  ) {
-    return cleanPlatformFlag()
-  }
-  return true
-}
-export const cleanPlatformFlag = () => {
-  const platformKey = 'out_auth_platform'
-  wsCache.delete(platformKey)
-  return false
-}
-export function isTablet() {
-  const userAgent = navigator.userAgent
-  const tabletRegex = /iPad|Silk|Galaxy Tab|PlayBook|BlackBerry|(tablet|ipad|playbook)/i
-  return tabletRegex.test(userAgent)
-}
-export function isMobile() {
-  return (
-    navigator.userAgent.match(
-      /(phone|pad|pod|iPhone|iPod|ios|iPad|Android|Mobile|BlackBerry|IEMobile|MQQBrowser|JUC|Fennec|wOSBrowser|BrowserNG|WebOS|Symbian|Windows Phone)/i
-    ) && !isTablet()
-  )
-}
-
-export const getSQLBotAddr = (portEnd?: boolean) => {
-  const addr = location.origin + location.pathname
-  if (!portEnd || !addr.endsWith('/')) {
-    return addr
-  }
-  return addr.substring(0, addr.length - 1)
 }

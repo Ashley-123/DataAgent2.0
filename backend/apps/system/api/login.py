@@ -1,17 +1,22 @@
 from typing import Annotated
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
-from apps.system.schemas.logout_schema import LogoutSchema
 from apps.system.schemas.system_schema import BaseUserDTO
 from common.core.deps import SessionDep, Trans
-from common.utils.crypto import sqlbot_decrypt
+from common.utils.rsa_utils import RSAUtil
 from ..crud.user import authenticate
 from common.core.security import create_access_token
 from datetime import timedelta
 from common.core.config import settings
 from common.core.schemas import Token
-from sqlbot_xpack.authentication.manage import logout as xpack_logout
 router = APIRouter(tags=["login"], prefix="/login")
+
+@router.get("/public-key")
+async def get_public_key() -> dict:
+    """获取 RSA 公钥用于前端加密"""
+    public_key = RSAUtil.get_public_key_string()
+    return {"public_key": public_key}
+
 
 @router.post("/access-token")
 async def local_login(
@@ -19,8 +24,17 @@ async def local_login(
     trans: Trans,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()]
 ) -> Token:
-    origin_account = await sqlbot_decrypt(form_data.username)
-    origin_pwd = await sqlbot_decrypt(form_data.password)
+    origin_account = form_data.username
+    encrypted_pwd = form_data.password
+    
+    # 尝试解密密码，如果解密失败则认为是明文密码（兼容旧版本）
+    try:
+        origin_pwd = RSAUtil.decrypt(encrypted_pwd)
+    except Exception as e:
+        # 解密失败，使用原始密码（明文）
+        origin_pwd = encrypted_pwd
+        print(f"解密失败，使用原始密码（明文）: {e}")
+    
     user: BaseUserDTO = authenticate(session=session, account=origin_account, password=origin_pwd)
     if not user:
         raise HTTPException(status_code=400, detail=trans('i18n_login.account_pwd_error'))
@@ -33,9 +47,3 @@ async def local_login(
     return Token(access_token=create_access_token(
         user_dict, expires_delta=access_token_expires
     ))
-
-@router.post("/logout")    
-async def logout(session: SessionDep, request: Request, dto: LogoutSchema):
-    if dto.origin != 0:
-        return await xpack_logout(session, request, dto)
-    return None

@@ -13,8 +13,6 @@ const params = withDefaults(
     x?: Array<ChartAxis>
     y?: Array<ChartAxis>
     series?: Array<ChartAxis>
-    // For 'spec' charts: full G2 options pass-through
-    options?: any
   }>(),
   {
     data: () => [],
@@ -22,7 +20,6 @@ const params = withDefaults(
     x: () => [],
     y: () => [],
     series: () => [],
-    options: () => undefined,
   }
 )
 
@@ -53,10 +50,6 @@ function renderChart() {
   chartInstance = getChartInstance(params.type, chartId.value)
   if (chartInstance) {
     chartInstance.init(axis.value, params.data)
-    // Pass options if provided (used by 'spec' type)
-    if (params.options !== undefined) {
-      chartInstance.setOptions(params.options)
-    }
     chartInstance.render()
   }
   console.debug(chartInstance)
