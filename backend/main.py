@@ -1,6 +1,6 @@
 import os
 
-import sqlbot_xpack
+# import sqlbot_xpack
 from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.concurrency import asynccontextmanager
@@ -104,19 +104,19 @@ app.add_exception_handler(Exception, exception_handler.global_exception_handler)
 
 mcp.setup_server()
 
-# Mount xpack_static directory from sqlbot_xpack package
-try:
-    # Get the path of sqlbot_xpack package
-    xpack_file = sqlbot_xpack.__file__
-    xpack_dir = os.path.dirname(xpack_file)
-    xpack_static_path = os.path.join(xpack_dir, "static")
-    if os.path.exists(xpack_static_path):
-        app.mount("/xpack_static", StaticFiles(directory=xpack_static_path), name="xpack_static")
-        SQLBotLogUtil.info(f"✅ Mounted xpack_static from: {xpack_static_path}")
-    else:
-        SQLBotLogUtil.warning(f"⚠️ xpack_static directory not found at: {xpack_static_path}")
-except Exception as e:
-    SQLBotLogUtil.warning(f"⚠️ Failed to mount xpack_static: {e}")
+# # Mount xpack_static directory from sqlbot_xpack package
+# try:
+#     # Get the path of sqlbot_xpack package
+#     xpack_file = sqlbot_xpack.__file__
+#     xpack_dir = os.path.dirname(xpack_file)
+#     xpack_static_path = os.path.join(xpack_dir, "static")
+#     if os.path.exists(xpack_static_path):
+#         app.mount("/xpack_static", StaticFiles(directory=xpack_static_path), name="xpack_static")
+#         SQLBotLogUtil.info(f"✅ Mounted xpack_static from: {xpack_static_path}")
+#     else:
+#         SQLBotLogUtil.warning(f"⚠️ xpack_static directory not found at: {xpack_static_path}")
+# except Exception as e:
+#     SQLBotLogUtil.warning(f"⚠️ Failed to mount xpack_static: {e}")
 
 sqlbot_xpack.init_fastapi_app(app)
 if __name__ == "__main__":
