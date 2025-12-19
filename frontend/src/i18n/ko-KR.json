@@ -657,6 +657,10 @@
     "execute_sql": "새 SQL 실행",
     "save_sql": "SQL 저장",
     "cancel_sql": "편집 취소",
+    "legend_input_placeholder": "입력 예: 제품A, 제품B",
+    "hide_other_legends": "다른 범례 숨기기",
+    "show_all_legends": "모두 보기",
+    "legend_control": "범례 제어",
 
     "export_to": "다음으로 내보내기",
     "excel": "Excel",

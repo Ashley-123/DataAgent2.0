@@ -649,13 +649,18 @@
       "bar": "Bar",
       "column": "Column",
       "line": "Line",
-      "pie": "Pie"
+      "pie": "Pie",
+      "scatter":"Scatter"
     },
     "show_sql": "View SQL",
     "edit_sql": "Edit SQL",
     "execute_sql": "Execute New SQL",
     "save_sql": "Save SQL",
     "cancel_sql": "Cancel Edit",
+    "legend_input_placeholder": "Enter legend names, separated by commas, semicolons, or newlines",
+    "hide_other_legends": "Hide other legends",
+    "show_all_legends": "Show all",
+    "legend_control": "Control legends",
 
     "export_to": "Export As",
     "excel": "Excel",

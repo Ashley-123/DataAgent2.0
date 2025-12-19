@@ -79,10 +79,20 @@ useEmitt({
   callback: renderChart,
 })
 
+//new lengend control
+function applyLegendControl(legendString: string) {
+  if (chartInstance && typeof chartInstance.applyLegendControl === 'function') {
+    chartInstance.applyLegendControl(legendString)
+  } else {
+    console.warn('⚠️  图表实例不支持图例控制方法')
+  }
+}
+
 defineExpose({
   renderChart,
   destroyChart,
   getExcelData,
+  applyLegendControl,
 })
 
 onMounted(() => {

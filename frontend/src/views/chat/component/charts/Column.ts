@@ -4,6 +4,11 @@ import type { G2Spec } from '@antv/g2'
 import { checkIsPercent } from '@/views/chat/component/charts/utils.ts'
 
 export class Column extends BaseG2Chart {
+  //ts中对应抽象类必须组织并调用，仅做声明
+  applyLegendControl(legendString: string): void {
+    legendString = legendString.trim()
+    return; // 或抛出错误防止误调用：throw new Error('Table 不支持图例控制');
+  }
   constructor(id: string) {
     super(id, 'column')
   }

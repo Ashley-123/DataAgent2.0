@@ -13,6 +13,11 @@ import { i18n } from '@/i18n'
 const { t } = i18n.global
 
 export class Table extends BaseChart {
+  applyLegendControl(legendString: string): void {
+    legendString = legendString.trim()
+    return; // 或抛出错误防止误调用：throw new Error('Table 不支持图例控制');
+  }
+
   table?: TableSheet = undefined
 
   container: S2MountContainer | null = null
