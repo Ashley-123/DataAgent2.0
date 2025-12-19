@@ -1,6 +1,6 @@
 import os
 
-# import sqlbot_xpack
+import sqlbot_xpack
 from alembic.config import Config
 from fastapi import FastAPI
 from fastapi.concurrency import asynccontextmanager
