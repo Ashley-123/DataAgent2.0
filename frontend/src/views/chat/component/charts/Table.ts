@@ -3,6 +3,11 @@ import { TableSheet, type S2Options, type S2DataConfig, type S2MountContainer } 
 import { debounce } from 'lodash-es'
 
 export class Table extends BaseChart {
+  applyLegendControl(legendString: string): void {
+    legendString = legendString.trim()
+    return; // 或抛出错误防止误调用：throw new Error('Table 不支持图例控制');
+  }
+
   table?: TableSheet = undefined
 
   container: S2MountContainer | null = null

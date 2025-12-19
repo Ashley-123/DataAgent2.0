@@ -16,6 +16,9 @@ import { setSize } from '@/utils/utils'
 import EmptyBackground from '@/views/dashboard/common/EmptyBackground.vue'
 import icon_fileExcel_colorful from '@/assets/datasource/icon_excel.png'
 import IconOpeDelete from '@/assets/svg/icon_delete.svg'
+import { useCache } from '@/utils/useCache'
+import axios from 'axios'
+import type { UploadRequestOptions } from 'element-plus'
 
 const props = withDefaults(
   defineProps<{
@@ -42,11 +45,21 @@ const excelUploadSuccess = ref(false)
 const tableListLoading = ref(false)
 const checkLoading = ref(false)
 const dialogTitle = ref('')
-const getUploadURL = import.meta.env.VITE_API_BASE_URL + '/datasource/uploadExcel'
+// const getUploadURL = import.meta.env.VITE_API_BASE_URL + '/datasource/uploadExcel'
+// const getUploadURL = import.meta.env.VITE_API_BASE_URL + '/datasource/uploadExcelBatch'
+
+const uploadURL = import.meta.env.VITE_API_BASE_URL + '/datasource/uploadExcelBatch'
+
 const saveLoading = ref<boolean>(false)
 const uploadLoading = ref(false)
 const { t } = useI18n()
 const schemaList = ref<any>([])
+  //multiple excel upload 
+const { wsCache } = useCache()
+const token = wsCache.get('user.token')
+
+const pendingFiles = ref<File[]>([])
+let uploadTimer: ReturnType<typeof setTimeout> | null = null
 
 const rules = reactive<FormRules>({
   name: [
@@ -403,20 +416,74 @@ const beforeUpload = (rawFile: any) => {
     ElMessage.error(t('common.not_exceed_50mb'))
     return false
   }
-  uploadLoading.value = true
   return true
+}
+//multiple excel upload
+const customUpload = async (options: UploadRequestOptions) => {
+  const file = options.file
+  
+  pendingFiles.value.push(file)
+  
+  if (uploadTimer) {
+    clearTimeout(uploadTimer)
+  }
+  
+  uploadTimer = setTimeout(() => {
+    uploadFiles(pendingFiles.value)
+    pendingFiles.value = []
+  }, 100)
+}
+
+const uploadFiles = async (files: File[]) => {
+  if (files.length === 0) return
+  
+  uploadLoading.value = true
+  
+  try {
+    const formData = new FormData()
+    
+    files.forEach((file) => {
+      formData.append('files', file)
+    })
+    
+    const headers: any = {
+      'Accept': '*/*',
+    }
+    
+    if (token) {
+      headers['X-SQLBOT-TOKEN'] = `Bearer ${token}`
+    }
+    
+    const response = await axios.post(uploadURL, formData, {
+      headers,
+    })
+    
+    // response.data 是后端返回的数据
+    onSuccess(response.data)
+
+  } catch (error: any) {
+    console.error('Upload error:', error)
+    onError(error)
+  }
 }
 
 const onSuccess = (response: any) => {
-  form.value.filename = response.data.filename
+  // form.value.filename = response.data.filename
+  form.value.filename = response.data.filenames?.length > 1 ? response.data.filenames.join(",") : response.data.filenames[0]
+
   form.value.sheets = response.data.sheets
   tableList.value = response.data.sheets
   excelUploadSuccess.value = true
   uploadLoading.value = false
 }
 
-const onError = () => {
+const onError = (error?: any) => {
   uploadLoading.value = false
+  if (error?.response?.data?.message) {
+    ElMessage.error(error.response.data.message)
+  } else {
+    ElMessage.error(t('common.upload_failed') || 'Upload failed')
+  }
 }
 
 onMounted(() => {
@@ -538,14 +605,23 @@ defineExpose({
                 <IconOpeDelete></IconOpeDelete>
               </el-icon>
             </div>
+            <!-- excelupload -->
+            <!-- v-if="form.filename && !form.id"
+              class="upload-user"
+              accept=".xlsx,.xls,.csv"
+              :multiple="true"
+              :action="getUploadURL"
+              :before-upload="beforeUpload"
+              :show-file-list="false"
+              :file-list="form.sheets"
+            > -->
             <el-upload
               v-if="form.filename && !form.id"
               class="upload-user"
               accept=".xlsx,.xls,.csv"
-              :action="getUploadURL"
+              :multiple="true"
+              :http-request="customUpload"
               :before-upload="beforeUpload"
-              :on-error="onError"
-              :on-success="onSuccess"
               :show-file-list="false"
               :file-list="form.sheets"
             >
@@ -557,7 +633,8 @@ defineExpose({
               v-else-if="!form.id"
               class="upload-user"
               accept=".xlsx,.xls,.csv"
-              :action="getUploadURL"
+              :multiple="true"
+              :http-request="customUpload"
               :before-upload="beforeUpload"
               :on-success="onSuccess"
               :on-error="onError"

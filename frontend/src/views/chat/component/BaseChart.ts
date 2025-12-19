@@ -29,4 +29,7 @@ export abstract class BaseChart {
   abstract render(): void
 
   abstract destroy(): void
+  //new lengend control
+  abstract applyLegendControl(legendString: string): void
+
 }

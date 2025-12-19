@@ -15,6 +15,8 @@ import icon_sql_outlined from '@/assets/svg/icon_sql_outlined.svg'
 import icon_export_outlined from '@/assets/svg/icon_export_outlined.svg'
 import icon_file_image_colorful from '@/assets/svg/icon_file-image_colorful.svg'
 import icon_file_excel_colorful from '@/assets/svg/icon_file-excel_colorful.svg'
+
+// import icon_windows_edit from '@/assets/svg/icon_windows_edit.svg'
 import icon_into_item_outlined from '@/assets/svg/icon_into-item_outlined.svg'
 import icon_window_max_outlined from '@/assets/svg/icon_window-max_outlined.svg'
 import icon_window_mini_outlined from '@/assets/svg/icon_window-mini_outlined.svg'
@@ -192,6 +194,11 @@ const dialogVisible = ref(false)
 function openFullScreen() {
   dialogVisible.value = true
 }
+//设置编辑,加上批量删减,多选,删除行/列功能(待加入)
+// function openScreenDataEdit(){
+//   openFullScreen();
+//   changeTable();
+// }
 
 function closeFullScreen() {
   emits('exitFullScreen')
@@ -202,10 +209,72 @@ function onExitFullScreen() {
 }
 
 const sqlShow = ref(false)
+//图例控制模式
+ const legendControlMode = ref(false)
+
+ const isLegendControllableChart = computed(() => {
+  return currentChartType.value === 'line' || currentChartType.value === 'scatter'
+})
+//图例输入框的值
+
+const legendInput = ref<string>('')
+
 
 function showSql() {
   sqlShow.value = true
 }
+function handleReExecuteSQL(params: { recordId: number; sql: string }) {
+  emits('re-execute-sql', params)
+  //可以加一个弹窗,内容要改
+  // ElMessage.success(t('embedded.copy_successful'))
+  sqlShow.value = false;
+}
+//new lengend control
+function enterLegendControlMode() {
+  legendControlMode.value = true
+}
+
+//退出图例模式，恢复数据
+
+function exitLegendControlMode() {
+  applyLegendControl('all')
+  legendControlMode.value = false
+}
+
+// - 应用图例控制
+
+function applyLegendControl(legendString?: string | Event) {
+  let controlString: string
+  if (legendString !== undefined && typeof legendString === 'string') {
+    controlString = legendString
+  } else {
+    controlString = typeof legendInput.value === 'string' ? legendInput.value.trim() : ''
+  }
+
+  if (!controlString) {
+    ElMessage({
+            message: "⚠️legend input is empty",
+            type: 'error',
+            showClose: true,
+          })
+    console.log('⚠️ legend input is empty')
+
+    return
+  }
+
+  // 调用 DisplayChartBlock 的图例控制方法
+  if (chartRef.value && chartRef.value.applyLegendControl) {
+    chartRef.value.applyLegendControl(controlString)
+  } else {
+    ElMessage({
+            message: "⚠️ chart component does not support legend control",
+            type: 'error',
+            showClose: true,
+          })
+    console.log('⚠️ chart component does not support legend control')
+  }
+}
+
 
 function addToDashboard() {
   const recordeInfo = {
@@ -297,7 +366,7 @@ function exportToImage() {
           link.download = (chartObject.value.title ?? 'chart') + '.png' // Specify filename
           link.href = URL.createObjectURL(blob)
           document.body.appendChild(link) // Append to body to make it clickable
-          link.click() // Programmatically click the link
+          link.click() 
           document.body.removeChild(link) // Clean up
           URL.revokeObjectURL(link.href) // Release the object URL
         }
@@ -336,7 +405,50 @@ watch(
       <div class="title">
         {{ chartObject.title }}
       </div>
-      <div class="buttons-bar">
+      <!--
+        图例控制输入框和按钮
+        只有在图例控制模式下显示
+      -->
+      <div v-if="legendControlMode" class="legend-control-container">
+        <el-input
+          v-model="legendInput"
+          placeholder="输入图例名，可用逗号、分号、换行符分隔"
+          size="small"
+          style="width: 300px; margin-right: 8px;"
+          @keyup.enter="() => applyLegendControl()"
+        />
+        <el-button
+          type="primary"
+          size="small"
+          @click="() => applyLegendControl()"
+          style="margin-right: 8px;"
+        >
+          {{ t('chat.hide_other_legends') }}
+        </el-button>
+        <el-button
+          size="small"
+          @click="exitLegendControlMode"
+        >
+          {{ t('chat.show_all_legends') }}
+        </el-button>
+      </div>
+
+      <!--
+        控制图例按钮
+        只有在正常模式下显示
+        调试信息：legendControlMode = {{ legendControlMode }}
+      -->
+      <div v-else-if="isLegendControllableChart" class="legend-control-btn">
+        <el-button
+          size="small"
+          @click="enterLegendControlMode"
+        >
+          {{ t('chat.legend_control') }}
+        </el-button>
+      </div>
+      <!-- <div class="buttons-bar"> -->
+      <div v-if="!legendControlMode" class="buttons-bar">
+
         <div class="chart-select-container">
           <el-tooltip effect="dark" :offset="8" :content="t('chat.type')" placement="top">
             <ChartPopover
@@ -432,6 +544,21 @@ watch(
           </el-tooltip>
         </div>
         <div class="divider" />
+        <!-- icon_edit_add 要与明细表绑定
+        <div>
+          <el-tooltip
+            effect="dark"
+            :offset="8"
+            :content="$t('common.zoom_in')"
+            placement="top"
+          >
+            <el-button class="tool-btn" text @click="openScreenDataEdit">
+              <el-icon size="16">
+                <icon_windows_edit />
+              </el-icon>
+            </el-button>
+          </el-tooltip>
+        </div> -->
         <div v-if="!enlarge">
           <el-tooltip
             effect="dark"
@@ -552,13 +679,18 @@ watch(
       overflow-y: auto;
 
       .title {
-        width: 100%;
+        // width: 100%;
+        max-width: 300px; 
         height: 32px;
         margin-bottom: 2px;
         display: flex;
         align-items: center;
         padding-left: 8px;
         color: #8f959e;
+    //add ellipsis
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
     }
 
@@ -793,6 +925,10 @@ watch(
     .input-icon {
       display: flex;
     }
+  }
+  //new lengend control
+  .legend-control-btn {
+    margin-left: 8px;
   }
 }
 </style>
