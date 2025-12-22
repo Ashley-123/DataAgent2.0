@@ -223,12 +223,6 @@ const legendInput = ref<string>('')
 function showSql() {
   sqlShow.value = true
 }
-function handleReExecuteSQL(params: { recordId: number; sql: string }) {
-  emits('re-execute-sql', params)
-  //可以加一个弹窗,内容要改
-  // ElMessage.success(t('embedded.copy_successful'))
-  sqlShow.value = false;
-}
 //new lengend control
 function enterLegendControlMode() {
   legendControlMode.value = true
