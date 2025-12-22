@@ -1,5 +1,5 @@
 # Build sqlbot
-FROM ghcr.io/1panel-dev/maxkb-vector-model:v1.0.1 AS vector-model
+FROM ghcr.1ms.run/1panel-dev/maxkb-vector-model:v1.0.1 AS vector-model
 FROM --platform=${BUILDPLATFORM} registry.cn-qingdao.aliyuncs.com/dataease/sqlbot-base:latest AS sqlbot-ui-builder
 ENV SQLBOT_HOME=/opt/sqlbot
 ENV APP_HOME=${SQLBOT_HOME}/app
@@ -12,9 +12,12 @@ ENV PNPM_FORCE=true
 RUN mkdir -p ${APP_HOME} ${UI_HOME}
 
 COPY frontend /tmp/frontend
-RUN npm install -g pnpm@10.14.0 \
+RUN npm config set registry https://registry.npmmirror.com \
+    && npm install -g pnpm@10.14.0 \
     && cd /tmp/frontend \
-    && pnpm install \
+    && pnpm config set registry https://registry.npmmirror.com \
+    && pnpm config set network-timeout 600000 \
+    && pnpm install --no-frozen-lockfile \
     && pnpm run build \
     && mv dist ${UI_HOME}/dist
 
@@ -55,9 +58,11 @@ FROM registry.cn-qingdao.aliyuncs.com/dataease/sqlbot-base:latest AS ssr-builder
 WORKDIR /app
 
 # 配置 npm 镜像源和网络设置
-RUN npm config set fund false \
+RUN npm config set registry https://registry.npmmirror.com \
+    && npm config set fund false \
     && npm config set audit false \
-    && npm config set progress false
+    && npm config set progress false \
+    && npm config set fetch-timeout 600000
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential python3 pkg-config \
@@ -84,10 +89,6 @@ ENV PYTHONUNBUFFERED=1
 ENV SQLBOT_HOME=/opt/sqlbot
 ENV PYTHONPATH=${SQLBOT_HOME}/app
 ENV PATH="${SQLBOT_HOME}/app/.venv/bin:$PATH"
-
-ENV POSTGRES_DB=sqlbot
-ENV POSTGRES_USER=root
-ENV POSTGRES_PASSWORD=Password123@pg
 
 ENV LD_LIBRARY_PATH="/opt/sqlbot/db_client/oracle_instant_client:${LD_LIBRARY_PATH}"
 
