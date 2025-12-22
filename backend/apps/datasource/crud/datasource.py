@@ -1,5 +1,6 @@
 import datetime
 import json
+import math
 from typing import List, Optional
 
 from fastapi import HTTPException
@@ -265,6 +266,22 @@ def updateField(session: SessionDep, field: CoreField):
     run_save_ds_embeddings([field.ds_id])
 
 
+def _clean_invalid_floats(data):
+    """
+    清理数据中的无效浮点值（inf, -inf, NaN），使其符合 JSON 规范
+    """
+    if isinstance(data, dict):
+        return {k: _clean_invalid_floats(v) for k, v in data.items()}
+    elif isinstance(data, list):
+        return [_clean_invalid_floats(item) for item in data]
+    elif isinstance(data, float):
+        if math.isinf(data) or math.isnan(data):
+            return None
+        return data
+    else:
+        return data
+
+
 def preview(session: SessionDep, current_user: CurrentUser, id: int, data: TableObj):
     ds = session.query(CoreDatasource).filter(CoreDatasource.id == id).first()
     # check_status(session, ds, True)
@@ -330,7 +347,10 @@ def preview(session: SessionDep, current_user: CurrentUser, id: int, data: Table
         sql = f"""SELECT "{'", "'.join(fields)}" FROM "{data.table.table_name}" 
             {where} 
             LIMIT 100"""
-    return exec_sql(ds, sql, True)
+    result = exec_sql(ds, sql, True)
+    # 清理数据中的无效浮点值
+    result = _clean_invalid_floats(result)
+    return result
 
 
 def fieldEnum(session: SessionDep, id: int):
