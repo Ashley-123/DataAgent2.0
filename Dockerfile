@@ -9,7 +9,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 RUN mkdir -p ${APP_HOME} ${UI_HOME}
 
 COPY frontend /tmp/frontend
-RUN cd /tmp/frontend && npm install && npm run build && mv dist ${UI_HOME}/dist
+# 修复权限问题：给 node_modules/.bin 下的所有可执行文件添加执行权限
+RUN cd /tmp/frontend && \
+    npm install && \
+    chmod -R +x node_modules/.bin/ && \
+    npm run build && \
+    mv dist ${UI_HOME}/dist
 
 
 FROM registry.cn-qingdao.aliyuncs.com/dataease/sqlbot-base:latest AS sqlbot-builder
@@ -22,6 +27,7 @@ ENV PYTHONPATH=${SQLBOT_HOME}/app
 ENV PATH="${APP_HOME}/.venv/bin:$PATH"
 ENV UV_COMPILE_BYTECODE=1
 ENV UV_LINK_MODE=copy
+ENV UV_HTTP_TIMEOUT=600
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Create necessary directories
@@ -30,12 +36,19 @@ RUN mkdir -p ${APP_HOME} ${UI_HOME}
 WORKDIR ${APP_HOME}
 
 COPY  --from=sqlbot-ui-builder ${UI_HOME} ${UI_HOME}
-# Install dependencies
-RUN test -f "./uv.lock" && \
-    --mount=type=cache,target=/root/.cache/uv \
-    --mount=type=bind,source=backend/uv.lock,target=uv.lock \
-    --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml \
-    uv sync --frozen --no-install-project || echo "uv.lock file not found, skipping intermediate-layers"
+
+# Create virtual environment first
+RUN uv venv
+
+# Install dependencies (if uv.lock exists)
+RUN --mount=type=cache,target=/root/.cache/uv \
+    --mount=type=bind,source=backend/uv.lock,target=uv.lock,readonly \
+    --mount=type=bind,source=backend/pyproject.toml,target=pyproject.toml,readonly \
+    if [ -f "./uv.lock" ]; then \
+        uv sync --frozen --no-install-project; \
+    else \
+        echo "uv.lock file not found, skipping intermediate-layers"; \
+    fi
 
 COPY ./backend ${APP_HOME}
 
