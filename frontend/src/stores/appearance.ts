@@ -8,7 +8,7 @@ import { setTitle, setCurrentColor } from '@/utils/utils'
 const basePath = import.meta.env.VITE_API_BASE_URL
 const baseUrl = basePath + '/system/appearance/picture/'
 import { isBtnShow } from '@/utils/utils'
-import type { LinkHTMLAttributes } from 'vue'
+// import type { HTMLLinkElement } from 'dom'
 interface AppearanceState {
   themeColor?: string
   customColor?: string
@@ -306,7 +306,7 @@ export const useAppearanceStore = defineStore('appearanceStore', {
 })
 
 const setLinkIcon = (linkWeb?: string) => {
-  const link = document.querySelector('link[rel="icon"]') as LinkHTMLAttributes
+  const link = document.querySelector('link[rel="icon"]') as unknown as HTMLLinkElement
   if (link) {
     if (linkWeb) {
       link['href'] = baseUrl + linkWeb

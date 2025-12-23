@@ -13,6 +13,14 @@ export default defineConfig(({ mode }) => {
     base: './',
     server: {
       allowedHosts: ['localhost', '127.0.0.1', "sqlbot.sabertrain.com"],
+      //前后端分离热加载开发添加的代理
+      proxy: {
+        '/api': {
+          target: 'http://localhost:8000',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api/, '/api')
+        }
+      }
     },
     plugins: [
       vue(),

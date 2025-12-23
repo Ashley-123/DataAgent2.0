@@ -142,10 +142,28 @@ app.add_exception_handler(Exception, exception_handler.global_exception_handler)
 
 mcp.setup_server()
 
+
+#前后端分离服务队mime补充，docker不影响但是单独调用要补充
+import mimetypes
+
+
+mimetypes.add_type("application/javascript", ".js")
+mimetypes.add_type("text/css", ".css")
+mimetypes.add_type("image/png", ".png")
+mimetypes.add_type("image/jpeg", ".jpg")
+
 # License functionality removed
 # sqlbot_xpack.init_fastapi_app(app)
 # 添加前端静态文件服务  
-app.mount("/", StaticFiles(directory="/opt/sqlbot/frontend/dist", html=True), name="static")
+
+
+
+# static_dir = "/opt/sqlbot/frontend/dist" if os.path.exists("/opt/sqlbot/frontend/dist") else "../frontend/dist"
+# app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+#如果是需要启动前端dist，取消上面两行注释即可
+
+
+# app.mount("/", StaticFiles(directory="/opt/sqlbot/frontend/dist", html=True), name="static")
 if __name__ == "__main__":
     import uvicorn
 
