@@ -158,6 +158,22 @@ def get_template_prompt_by_id(
     return None
 
 
+def get_template_prompt_by_name(
+    session: Session,
+    name: str,
+    oid: int
+) -> Optional[TemplatePrompt]:
+    """根据名称获取模板提示词"""
+    query = select(TemplatePrompt).where(
+        and_(
+            TemplatePrompt.name == name,
+            TemplatePrompt.oid == oid
+        )
+    )
+    template_prompt = session.exec(query).first()
+    return template_prompt
+
+
 def get_template_prompts_by_type(
     session: Session,
     type: str,

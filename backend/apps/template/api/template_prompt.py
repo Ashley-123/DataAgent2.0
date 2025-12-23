@@ -8,14 +8,17 @@ from apps.template.curd.template_prompt import (
     update_template_prompt,
     delete_template_prompt,
     enable_template_prompt,
-    get_template_prompt_by_id
+    get_template_prompt_by_id,
+    get_template_prompt_by_name
 )
 from apps.template.models.template_prompt_model import TemplatePromptInfo
 from common.core.deps import SessionDep, CurrentUser, Trans
+from common.utils.utils import SQLBotLogUtil
 
 router = APIRouter(tags=["Template Prompt"], prefix="/system/template-prompt")
 
 
+"""分页查询模板提示词"""
 @router.get("/page/{current_page}/{page_size}")
 async def pager(
     session: SessionDep,
@@ -26,7 +29,7 @@ async def pager(
     name: Optional[str] = Query(None, description="搜索提示词名称(可选)"),
     datasource_id: Optional[int] = Query(None, description="数据源ID(可选)")
 ):
-    """分页查询模板提示词"""
+
     current_page, page_size, total_count, total_pages, _list = page_template_prompt(
         session=session,
         current_page=current_page,
@@ -37,47 +40,37 @@ async def pager(
         datasource_id=datasource_id
     )
 
-    # 将 SQLModel 对象列表转换为字典列表，确保正确序列化
     data_list = []
+    skipped_count = 0
     for item in _list:
-        # 尝试多种方式提取数据
         item_dict = {}
-        try:
-            # 方法1: 尝试使用 model_dump（SQLModel 对象）
-            if hasattr(item, 'model_dump'):
-                item_dict = item.model_dump()
-            # 方法2: 尝试直接访问属性
-            else:
-                item_dict = {
-                    "id": item.id if hasattr(item, 'id') else None,
-                    "oid": item.oid if hasattr(item, 'oid') else None,
-                    "type": item.type if hasattr(item, 'type') else None,
-                    "name": item.name if hasattr(item, 'name') else None,
-                    "content": item.content if hasattr(item, 'content') else None,
-                    "datasource_id": item.datasource_id if hasattr(item, 'datasource_id') else None,
-                    "enabled": item.enabled if hasattr(item, 'enabled') else None,
-                    "create_time": item.create_time if hasattr(item, 'create_time') else None,
-                    "update_time": item.update_time if hasattr(item, 'update_time') else None
-                }
-        except (AttributeError, KeyError, TypeError) as e:
-            # 方法3: 如果以上都失败，尝试使用 getattr
+        if hasattr(item, '_fields'):
             try:
-                item_dict = {
-                    "id": getattr(item, 'id', None),
-                    "oid": getattr(item, 'oid', None),
-                    "type": getattr(item, 'type', None),
-                    "name": getattr(item, 'name', None),
-                    "content": getattr(item, 'content', None),
-                    "datasource_id": getattr(item, 'datasource_id', None),
-                    "enabled": getattr(item, 'enabled', None),
-                    "create_time": getattr(item, 'create_time', None),
-                    "update_time": getattr(item, 'update_time', None)
-                }
+                from sqlmodel import SQLModel
+                for field_item, key in zip(item, item._fields):
+                    if isinstance(field_item, SQLModel):
+                        item_dict.update(field_item.model_dump())
+                    else:
+                        item_dict[key] = field_item
             except Exception:
-                # 如果还是失败，返回空字典（不应该发生）
                 item_dict = {}
         
-        data_list.append(TemplatePromptInfo.model_validate(item_dict))
+        # 跳过无效记录，无法通过验证
+        if item_dict.get('type') is None or item_dict.get('content') is None:
+            skipped_count += 1
+            SQLBotLogUtil.debug(f"Skipped invalid record: id={item_dict.get('id')}, type={item_dict.get('type')}, content={'None' if item_dict.get('content') is None else 'exists'}")
+            continue
+        
+        try:
+            data_list.append(TemplatePromptInfo.model_validate(item_dict))
+
+        except Exception as e:
+            skipped_count += 1
+            SQLBotLogUtil.debug(f"Validation failed for record id={item_dict.get('id')}: {str(e)}")
+            continue
+    
+    if skipped_count > 0:
+        SQLBotLogUtil.info(f"Filtered {skipped_count} invalid records out of {len(_list)} total records")
 
     return {
         "current_page": current_page,
@@ -87,7 +80,7 @@ async def pager(
         "data": data_list
     }
 
-
+"""创建或更新模板提示词"""
 @router.put("")
 async def create_or_update(
     session: SessionDep,
@@ -95,14 +88,12 @@ async def create_or_update(
     trans: Trans,
     info: TemplatePromptInfo
 ):
-    """创建或更新模板提示词"""
     oid = current_user.oid
     if info.id:
         result = update_template_prompt(session, info, oid, trans)
     else:
         result = create_template_prompt(session, info, oid, trans)
     
-    # 手动构建字典，确保所有字段都被正确提取
     result_dict = {
         "id": result.id,
         "oid": result.oid,
@@ -116,17 +107,17 @@ async def create_or_update(
     }
     return TemplatePromptInfo.model_validate(result_dict)
 
-
+"""删除模板提示词"""
 @router.delete("")
 async def delete(
     session: SessionDep,
     current_user: CurrentUser,
     id_list: list[int]
 ):
-    """删除模板提示词"""
     delete_template_prompt(session, id_list, current_user.oid)
 
 
+"""启用/禁用模板提示词"""
 @router.get("/{id}/enable/{enabled}")
 async def enable(
     session: SessionDep,
@@ -135,9 +126,8 @@ async def enable(
     enabled: bool,
     trans: Trans
 ):
-    """启用/禁用模板提示词"""
+
     result = enable_template_prompt(session, id, enabled, current_user.oid, trans)
-    # 手动构建字典，确保所有字段都被正确提取
     result_dict = {
         "id": result.id,
         "oid": result.oid,
@@ -152,27 +142,43 @@ async def enable(
     return TemplatePromptInfo.model_validate(result_dict)
 
 
-@router.get("/{id}")
-async def get_by_id(
+@router.get("/name/{name}")
+async def get_by_name(
     session: SessionDep,
     current_user: CurrentUser,
-    id: int
+    name: str
 ):
-    """根据ID获取模板提示词"""
-    template_prompt = get_template_prompt_by_id(session, id, current_user.oid)
+    """根据名称获取模板提示词"""
+    template_prompt = get_template_prompt_by_name(session, name, current_user.oid)
     if not template_prompt:
         raise HTTPException(status_code=404, detail="Template prompt not found")
-    # 手动构建字典，确保所有字段都被正确提取
-    result_dict = {
-        "id": template_prompt.id,
-        "oid": template_prompt.oid,
-        "type": template_prompt.type,
-        "name": template_prompt.name,
-        "content": template_prompt.content,
-        "datasource_id": template_prompt.datasource_id,
-        "enabled": template_prompt.enabled,
-        "create_time": template_prompt.create_time,
-        "update_time": template_prompt.update_time
-    }
+    
+    # 处理不同的返回类型（SQLModel 对象或 Row 对象）
+    if hasattr(template_prompt, 'model_dump'):
+        # 如果是 SQLModel 对象，使用 model_dump
+        result_dict = template_prompt.model_dump()
+    elif hasattr(template_prompt, '_fields'):
+        # 如果是 Row 对象，从 _fields 提取
+        from sqlmodel import SQLModel
+        result_dict = {}
+        for field_item, key in zip(template_prompt, template_prompt._fields):
+            if isinstance(field_item, SQLModel):
+                result_dict.update(field_item.model_dump())
+            else:
+                result_dict[key] = field_item
+    else:
+        # 直接访问属性
+        result_dict = {
+            "id": getattr(template_prompt, 'id', None),
+            "oid": getattr(template_prompt, 'oid', None),
+            "type": getattr(template_prompt, 'type', None),
+            "name": getattr(template_prompt, 'name', None),
+            "content": getattr(template_prompt, 'content', None),
+            "datasource_id": getattr(template_prompt, 'datasource_id', None),
+            "enabled": getattr(template_prompt, 'enabled', None),
+            "create_time": getattr(template_prompt, 'create_time', None),
+            "update_time": getattr(template_prompt, 'update_time', None)
+        }
+    
     return TemplatePromptInfo.model_validate(result_dict)
 
