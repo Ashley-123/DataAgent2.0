@@ -27,44 +27,47 @@ interface Form {
   datasource_names: string[]
   name: string | null
 }
-const drawerMainRef = ref()
-const { t } = useI18n()
-const { copy } = useClipboard({ legacy: true })
-const multipleSelectionAll = ref<any[]>([])
-const keywords = ref('')
-const oldKeywords = ref('')
-const searchLoading = ref(false)
-const currentType = ref('GENERATE_SQL')
 
-const options = ref<any[]>([])
+const drawerMainRef = ref() 
+const { t } = useI18n() 
+const { copy } = useClipboard({ legacy: true }) 
+const multipleSelectionAll = ref<any[]>([]) 
+const keywords = ref('') 
+const oldKeywords = ref('')
+const searchLoading = ref(false) 
+const currentType = ref('chart') 
+
+const options = ref<any[]>([]) 
 const selectable = () => {
   return true
 }
 
+
 const state = reactive<any>({
-  conditions: [],
-  filterTexts: [],
+  conditions: [], 
+  filterTexts: [], 
 })
 
 onMounted(() => {
   datasourceApi.list().then((res) => {
     filterOption.value[0].option = [...res]
+    options.value = [...res]
   })
   search()
 })
 
-const dialogFormVisible = ref<boolean>(false)
-const multipleTableRef = ref()
-const isIndeterminate = ref(true)
-const checkAll = ref(false)
+const dialogFormVisible = ref<boolean>(false) 
+const multipleTableRef = ref() 
+const isIndeterminate = ref(true) 
+const checkAll = ref(false) 
 const fieldList = ref<any>([])
 const pageInfo = reactive({
-  currentPage: 1,
-  pageSize: 10,
-  total: 0,
+  currentPage: 1, 
+  pageSize: 10, 
+  total: 0, 
 })
 
-const dialogTitle = ref('')
+const dialogTitle = ref('') 
 const updateLoading = ref(false)
 const defaultForm = {
   id: null,
@@ -76,6 +79,7 @@ const defaultForm = {
   specific_ds: false,
 }
 const pageForm = ref<Form>(cloneDeep(defaultForm))
+
 const copyCode = () => {
   copy(pageForm.value.prompt!)
     .then(function () {
@@ -85,6 +89,7 @@ const copyCode = () => {
       ElMessage.error(t('embedded.copy_failed'))
     })
 }
+
 const cancelDelete = () => {
   handleToggleRowSelection(false)
   multipleSelectionAll.value = []
@@ -117,6 +122,7 @@ const exportExcel = () => {
   if (currentType.value === 'PREDICT_DATA') {
     title = t('prompt.data_prediction')
   }
+  // 显示确认对话框，提示用户将导出多少条记录
   ElMessageBox.confirm(t('prompt.export_hint', { msg: pageInfo.total, type: title }), {
     confirmButtonType: 'primary',
     confirmButtonText: t('professional.export'),
@@ -125,12 +131,15 @@ const exportExcel = () => {
     autofocus: false,
   }).then(() => {
     searchLoading.value = true
+    // 调用导出 API，如果有搜索关键词则传递关键词参数
     promptApi
       .export2Excel(currentType.value, keywords.value ? { name: keywords.value } : {})
       .then((res) => {
+        // 创建 Excel 文件的 Blob 对象
         const blob = new Blob([res], {
           type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         })
+        // 创建下载链接并触发下载
         const link = document.createElement('a')
         link.href = URL.createObjectURL(blob)
         link.download = `${title}.xlsx`
@@ -139,6 +148,7 @@ const exportExcel = () => {
         document.body.removeChild(link)
       })
       .catch(async (error) => {
+        // 错误处理：尝试解析错误响应并显示错误消息
         if (error.response) {
           try {
             let text = await error.response.data.text()
@@ -168,6 +178,7 @@ const exportExcel = () => {
       })
   })
 }
+
 const deleteBatchUser = () => {
   ElMessageBox.confirm(
     t('prompt.selected_prompt_words', { msg: multipleSelectionAll.value.length }),
@@ -179,7 +190,8 @@ const deleteBatchUser = () => {
       autofocus: false,
     }
   ).then(() => {
-    promptApi.deleteEmbedded(multipleSelectionAll.value.map((ele) => ele.id)).then(() => {
+    // 提取所有选中项的 ID 并调用删除 API
+    promptApi.deletePrompt(multipleSelectionAll.value.map((ele) => ele.id)).then(() => {
       ElMessage({
         type: 'success',
         message: t('dashboard.delete_success'),
@@ -189,6 +201,7 @@ const deleteBatchUser = () => {
     })
   })
 }
+
 const deleteHandler = (row: any) => {
   ElMessageBox.confirm(t('prompt.prompt_word_name_de', { msg: row.name }), {
     confirmButtonType: 'danger',
@@ -197,7 +210,8 @@ const deleteHandler = (row: any) => {
     customClass: 'confirm-no_icon',
     autofocus: false,
   }).then(() => {
-    promptApi.deleteEmbedded([row.id]).then(() => {
+    promptApi.deletePrompt([row.id]).then(() => {
+      // 从跨页选中列表中移除该项
       multipleSelectionAll.value = multipleSelectionAll.value.filter((ele) => row.id !== ele.id)
       ElMessage({
         type: 'success',
@@ -207,19 +221,42 @@ const deleteHandler = (row: any) => {
     })
   })
 }
+// console  文字
+const toggleEnabled = (row: any) => {
+  const newStatus = row.enabled ? t('dashboard.enabled') : t('dashboard.disabled')
+  promptApi.addandputPrompt({
+    ...row,
+    enabled: row.enabled
+  }).then(() => {
+    ElMessage({
+      type: 'success',
+      message: t('prompt.prompt_word_name_success', { msg: newStatus }),
+    })
+  }).catch(() => {
+    row.enabled = !row.enabled
+    ElMessage({
+      type: 'error',
+      message: t('prompt.prompt_word_name_failed', { msg: newStatus }),
+    })
+  })
+}
+
 const handleSelectionChange = (val: any[]) => {
-  if (toggleRowLoading.value) return
-  const arr = fieldList.value.filter(selectable)
-  const ids = arr.map((ele: any) => ele.id)
+  if (toggleRowLoading.value) return 
+  const arr = fieldList.value.filter(selectable) 
+  const ids = arr.map((ele: any) => ele.id) 
+
   multipleSelectionAll.value = [
     ...multipleSelectionAll.value.filter((ele: any) => !ids.includes(ele.id)),
     ...val,
   ]
+
   isIndeterminate.value = !(val.length === 0 || val.length === arr.length)
   checkAll.value = val.length === arr.length
 }
+
 const handleCheckAllChange = (val: any) => {
-  isIndeterminate.value = false
+  isIndeterminate.value = false 
   handleSelectionChange(val ? fieldList.value.filter(selectable) : [])
   if (val) {
     handleToggleRowSelection()
@@ -228,13 +265,13 @@ const handleCheckAllChange = (val: any) => {
   }
 }
 
-const toggleRowLoading = ref(false)
+const toggleRowLoading = ref(false) 
 
 const handleToggleRowSelection = (check: boolean = true) => {
   toggleRowLoading.value = true
-  const arr = fieldList.value.filter(selectable)
-  let i = 0
-  const ids = multipleSelectionAll.value.map((ele: any) => ele.id)
+  const arr = fieldList.value.filter(selectable) // 当前页所有可选行
+  let i = 0 
+  const ids = multipleSelectionAll.value.map((ele: any) => ele.id) // 跨页选中列表的所有 ID
   for (const key in arr) {
     if (ids.includes((arr[key] as any).id)) {
       i += 1
@@ -242,19 +279,36 @@ const handleToggleRowSelection = (check: boolean = true) => {
     }
   }
   toggleRowLoading.value = false
-  checkAll.value = i === arr.length
-  isIndeterminate.value = !(i === 0 || i === arr.length)
+  // 更新全选复选框状态
+  checkAll.value = i === arr.length // 如果当前页所有行都在选中列表中，则全选
+  isIndeterminate.value = !(i === 0 || i === arr.length) // 部分选中时为半选状态
 }
+
 
 const search = () => {
   searchLoading.value = true
   oldKeywords.value = keywords.value
   promptApi
-    .getList(pageInfo.currentPage, pageInfo.pageSize, currentType.value, configParams())
+    .getList(pageInfo.currentPage, pageInfo.pageSize, currentType.value)
     .then((res: any) => {
       toggleRowLoading.value = true
-      fieldList.value = res.data
-      pageInfo.total = res.total_count
+      // 数据映射：将 content 字段映射为 prompt
+      fieldList.value = res.data.map((item: any) => {
+        const datasource_names = item.datasource_id
+          ? (() => {
+            const matchedOption = options.value.find((opt: any) => opt.id === item.datasource_id)
+            return matchedOption ? [matchedOption.name] : [`数据源${item.datasource_id}`]
+          })()
+          : []
+
+        return {
+          ...item,
+          prompt: item.content, 
+          specific_ds: item.datasource_id ? true : false, 
+          datasource_names, 
+        }
+      })
+      pageInfo.total = res.total_count 
       searchLoading.value = false
       nextTick(() => {
         handleToggleRowSelection()
@@ -265,7 +319,9 @@ const search = () => {
     })
 }
 
-const termFormRef = ref()
+const termFormRef = ref() 
+
+
 const validatePass = (_: any, value: any, callback: any) => {
   if (pageForm.value.specific_ds && !value.length) {
     callback(new Error(t('datasource.Please_select') + t('common.empty') + t('ds.title')))
@@ -273,16 +329,18 @@ const validatePass = (_: any, value: any, callback: any) => {
     callback()
   }
 }
+
+
 const rules = {
   name: [
     {
-      required: true,
+      required: true, 
       message: t('datasource.please_enter') + t('common.empty') + t('prompt.prompt_word_name'),
     },
   ],
   datasource_ids: [
     {
-      validator: validatePass,
+      validator: validatePass, 
       trigger: 'blur',
     },
   ],
@@ -294,29 +352,68 @@ const rules = {
   ],
 }
 
+
 const list = () => {
   datasourceApi.list().then((res: any) => {
     options.value = res || []
   })
 }
 
+/**
+ * saveHandler 函数
+ */
+// const saveHandler = () => {
+//   termFormRef.value.validate((res: any) => {
+//     if (res) {
+//       // res 为 true 表示验证通过（Element Plus 的 validate 回调逻辑）
+//       const obj = unref(pageForm)
+//       if (!obj.id) {
+//         delete obj.id // 新增时删除 id 字段
+//       }
+//       updateLoading.value = true
+//       promptApi
+//         .updateEmbedded(obj)
+//         .then(() => {
+//           ElMessage({
+//             type: 'success',
+//             message: t('common.save_success'),
+//           })
+//           search() // 刷新列表
+//           onFormClose() // 关闭抽屉
+//         })
+//         .finally(() => {
+//           updateLoading.value = false
+//         })
+//     }
+//   })
+// }
+//新保存接口
 const saveHandler = () => {
   termFormRef.value.validate((res: any) => {
     if (res) {
       const obj = unref(pageForm)
       if (!obj.id) {
-        delete obj.id
+        delete obj.id 
       }
       updateLoading.value = true
+      
+      
+      const data = {
+        "type": obj.type || '',
+        "name": obj.name || '',
+        "content": obj.prompt || '',
+        "datasource_id": obj.datasource_ids.length > 0 ? obj.datasource_ids.join(',') : null,
+        "enabled": true,
+      }
       promptApi
-        .updateEmbedded(obj)
+        .addandputPrompt(data)
         .then(() => {
           ElMessage({
             type: 'success',
             message: t('common.save_success'),
           })
-          search()
-          onFormClose()
+          search() 
+          onFormClose() 
         })
         .finally(() => {
           updateLoading.value = false
@@ -327,19 +424,21 @@ const saveHandler = () => {
 
 const editHandler = (row: any) => {
   pageForm.value.id = null
-  pageForm.value.type = unref(currentType)
+  pageForm.value.type = unref(currentType) 
   if (row) {
-    pageForm.value = cloneDeep(row)
+    pageForm.value = cloneDeep(row) 
   }
   list()
   dialogTitle.value = row?.id ? t('prompt.edit_prompt_word') : t('prompt.add_prompt_word')
   dialogFormVisible.value = true
+
 }
 
 const onFormClose = () => {
   pageForm.value = cloneDeep(defaultForm)
   dialogFormVisible.value = false
 }
+
 
 const handleSizeChange = (val: number) => {
   pageInfo.currentPage = 1
@@ -351,17 +450,21 @@ const handleCurrentChange = (val: number) => {
   pageInfo.currentPage = val
   search()
 }
-const rowInfoDialog = ref(false)
+
+const rowInfoDialog = ref(false) 
+
 
 const handleRowClick = (row: any) => {
   pageForm.value = cloneDeep(row)
   rowInfoDialog.value = true
 }
 
+
 const onRowFormClose = () => {
   pageForm.value = cloneDeep(defaultForm)
   rowInfoDialog.value = false
 }
+
 
 const handleChange = () => {
   termFormRef.value.validateField('datasource_ids')
@@ -369,35 +472,19 @@ const handleChange = () => {
 
 const typeChange = (val: any) => {
   currentType.value = val
-  pageInfo.currentPage = 0
+  pageInfo.currentPage = 1
   search()
 }
 
-const configParams = () => {
-  let str = ''
-  if (keywords.value) {
-    str += `name=${keywords.value}`
-  }
 
-  state.conditions.forEach((ele: any) => {
-    ele.value.forEach((itx: any) => {
-      str += str ? `_${itx}` : `${ele.field}=${itx}`
-    })
-  })
-
-  if (str.length) {
-    str = `?${str}`
-  }
-  return str
-}
 const filterOption = ref<any[]>([
   {
-    type: 'select',
-    option: [],
-    field: 'dslist',
-    title: t('ds.title'),
-    operate: 'in',
-    property: { placeholder: t('common.empty') + t('ds.title') },
+    type: 'select', 
+    option: [], 
+    field: 'dslist', 
+    title: t('ds.title'), 
+    operate: 'in', 
+    property: { placeholder: t('common.empty') + t('ds.title') }, 
   },
 ])
 
@@ -408,6 +495,8 @@ const fillFilterText = () => {
   state.filterTexts = [...textArray]
   Object.assign(state.filterTexts, textArray)
 }
+
+
 const searchCondition = (conditions: any) => {
   state.conditions = conditions
   fillFilterText()
@@ -438,54 +527,44 @@ const drawerMainClose = () => {
   <div class="prompt">
     <div class="tool-left">
       <div class="btn-select">
-        <el-button
-          :class="[currentType === 'GENERATE_SQL' && 'is-active']"
-          text
-          @click="typeChange('GENERATE_SQL')"
-        >
-          {{ $t('prompt.ask_sql') }}
+        <!-- 生成SQL类型按钮 -->
+        <!-- <el-button
+            :class="[currentType === 'sql' && 'is-active']"
+            text
+            @click="typeChange('sql')"
+          >
+            {{ $t('prompt.ask_sql') }}真 sql提示词
+          </el-button> -->
+        <el-button :class="[currentType === 'chart' && 'is-active']" text @click="typeChange('chart')">
+          数据绘图
         </el-button>
-        <el-button
-          :class="[currentType === 'ANALYSIS' && 'is-active']"
-          text
-          @click="typeChange('ANALYSIS')"
-        >
-          {{ $t('prompt.data_analysis') }}
+        <el-button :class="[currentType === 'analysis' && 'is-active']" text @click="typeChange('analysis')">
+          数据分析
         </el-button>
-        <el-button
-          :class="[currentType === 'PREDICT_DATA' && 'is-active']"
-          text
-          @click="typeChange('PREDICT_DATA')"
-        >
-          {{ $t('prompt.data_prediction') }}
+        <el-button :class="[currentType === 'predict' && 'is-active']" text @click="typeChange('predict')">
+          数据预测
         </el-button>
+
+
       </div>
       <div class="tool-row">
-        <el-input
-          v-model="keywords"
-          style="width: 240px; margin-right: 12px"
-          :placeholder="$t('dashboard.search')"
-          clearable
-          @blur="search"
-        >
+        <el-input v-model="keywords" style="width: 240px; margin-right: 12px" :placeholder="$t('dashboard.search')"
+          clearable @blur="search">
           <template #prefix>
             <el-icon>
               <icon_searchOutline_outlined />
             </el-icon>
           </template>
         </el-input>
+        <!-- 导出Excel按钮 -->
         <el-button secondary @click="exportExcel">
           <template #icon>
             <icon_export_outlined />
           </template>
           {{ $t('professional.export_all') }}
         </el-button>
-        <Uploader
-          :upload-path="`/system/custom_prompt/${currentType}/uploadExcel`"
-          :template-path="`/system/custom_prompt/template`"
-          :template-name="getFileName()"
-          @upload-finished="search"
-        />
+        <Uploader :upload-path="`/system/custom_prompt/${currentType}/uploadExcel`"
+          :template-path="`/system/custom_prompt/template`" :template-name="getFileName()" @upload-finished="search" />
         <el-button class="no-margin" secondary @click="drawerMainOpen">
           <template #icon>
             <iconFilter></iconFilter>
@@ -500,24 +579,11 @@ const drawerMainClose = () => {
         </el-button>
       </div>
     </div>
-    <div
-      v-if="!searchLoading"
-      class="table-content"
-      :class="multipleSelectionAll?.length && 'show-pagination_height'"
-    >
-      <filter-text
-        :total="pageInfo.total"
-        :filter-texts="state.filterTexts"
-        @clear-filter="clearFilter"
-      />
+    <div v-if="!searchLoading" class="table-content" :class="multipleSelectionAll?.length && 'show-pagination_height'">
+      <filter-text :total="pageInfo.total" :filter-texts="state.filterTexts" @clear-filter="clearFilter" />
       <div class="preview-or-schema">
-        <el-table
-          ref="multipleTableRef"
-          :data="fieldList"
-          style="width: 100%"
-          @row-click="handleRowClick"
-          @selection-change="handleSelectionChange"
-        >
+        <el-table ref="multipleTableRef" :data="fieldList" style="width: 100%" @row-click="handleRowClick"
+          @selection-change="handleSelectionChange">
           <el-table-column :selectable="selectable" type="selection" width="55" />
           <el-table-column prop="name" :label="$t('prompt.prompt_word_name')" width="280">
           </el-table-column>
@@ -528,8 +594,7 @@ const drawerMainClose = () => {
               </div>
             </template>
           </el-table-column>
-          <el-table-column :label="$t('training.effective_data_sources')" min-width="240"
-            ><template #default="scope">
+          <el-table-column :label="$t('training.effective_data_sources')" min-width="240"><template #default="scope">
               <div v-if="scope.row.specific_ds" class="field-comment_d">
                 <span :title="scope.row.datasource_names" class="notes-in_table">{{
                   scope.row.datasource_names.join(',')
@@ -538,61 +603,50 @@ const drawerMainClose = () => {
               <div v-else>{{ t('training.all_data_sources') }}</div>
             </template>
           </el-table-column>
-          <el-table-column
-            prop="create_time"
-            sortable
-            :label="$t('dashboard.create_time')"
-            width="240"
-          >
+          <el-table-column prop="create_time" sortable :label="$t('dashboard.create_time')" width="240">
             <template #default="scope">
               <span>{{ formatTimestamp(scope.row.create_time, 'YYYY-MM-DD HH:mm:ss') }}</span>
             </template>
           </el-table-column>
-          <el-table-column fixed="right" width="80" :label="t('ds.actions')">
+          <el-table-column fixed="right" width="160" :label="t('ds.actions')">
             <template #default="scope">
               <div class="field-comment">
-                <el-tooltip
-                  :offset="14"
-                  effect="dark"
-                  :content="$t('datasource.edit')"
-                  placement="top"
-                >
+                <el-tooltip :offset="14" effect="dark" :content="$t('datasource.edit')" placement="top">
                   <el-icon class="action-btn" size="16" @click.stop="editHandler(scope.row)">
                     <IconOpeEdit></IconOpeEdit>
                   </el-icon>
                 </el-tooltip>
-                <el-tooltip
-                  :offset="14"
-                  effect="dark"
-                  :content="$t('dashboard.delete')"
-                  placement="top"
-                >
+                <!-- 刪除列，加一个操作启动列 -->
+                <el-tooltip :offset="14" effect="dark" :content="$t('dashboard.delete')" placement="top">
                   <el-icon class="action-btn" size="16" @click.stop="deleteHandler(scope.row)">
                     <IconOpeDelete></IconOpeDelete>
                   </el-icon>
                 </el-tooltip>
+                <!-- console 启用/禁用文本 -->
+                <el-tooltip :offset="14" effect="dark" :content="scope.row.enabled ? $t('dashboard.enabled') : $t('dashboard.disabled')" placement="top">
+                <el-switch
+                  v-model="scope.row.enabled"
+                  @click.stop="toggleEnabled(scope.row)"
+                  size="small"
+                >
+                </el-switch>
+              </el-tooltip>
               </div>
             </template>
           </el-table-column>
           <template #empty>
-            <EmptyBackground
-              v-if="!!oldKeywords && !fieldList.length"
-              :description="$t('datasource.relevant_content_found')"
-              img-type="tree"
-            />
+            <EmptyBackground v-if="!!oldKeywords && !fieldList.length"
+              :description="$t('datasource.relevant_content_found')" img-type="tree" />
             <template v-if="!oldKeywords && !fieldList.length">
-              <EmptyBackground
-                class="datasource-yet"
-                :description="$t('prompt.no_prompt_words')"
-                img-type="noneWhite"
-              />
+              <EmptyBackground class="datasource-yet" :description="$t('prompt.no_prompt_words')"
+                img-type="noneWhite" />
 
               <div style="text-align: center; margin-top: -23px">
                 <el-button type="primary" @click="editHandler(null)">
                   <template #icon>
                     <icon_add_outlined></icon_add_outlined>
                   </template>
-                  {{ $t('prompt.add_prompt_word') }}22
+                  {{ $t('prompt.add_prompt_word') }}
                 </el-button>
               </div>
             </template>
@@ -602,23 +656,12 @@ const drawerMainClose = () => {
     </div>
 
     <div v-if="fieldList.length" class="pagination-container">
-      <el-pagination
-        v-model:current-page="pageInfo.currentPage"
-        v-model:page-size="pageInfo.pageSize"
-        :page-sizes="[10, 20, 30]"
-        :background="true"
-        layout="total, sizes, prev, pager, next, jumper"
-        :total="pageInfo.total"
-        @size-change="handleSizeChange"
-        @current-change="handleCurrentChange"
-      />
+      <el-pagination v-model:current-page="pageInfo.currentPage" v-model:page-size="pageInfo.pageSize"
+        :page-sizes="[10, 20, 30]" :background="true" layout="total, sizes, prev, pager, next, jumper"
+        :total="pageInfo.total" @size-change="handleSizeChange" @current-change="handleCurrentChange" />
     </div>
     <div v-if="multipleSelectionAll.length" class="bottom-select">
-      <el-checkbox
-        v-model="checkAll"
-        :indeterminate="isIndeterminate"
-        @change="handleCheckAllChange"
-      >
+      <el-checkbox v-model="checkAll" :indeterminate="isIndeterminate" @change="handleCheckAllChange">
         {{ $t('datasource.select_all') }}
       </el-checkbox>
 
@@ -634,65 +677,31 @@ const drawerMainClose = () => {
     </div>
   </div>
 
-  <el-drawer
-    v-model="dialogFormVisible"
-    :title="dialogTitle"
-    destroy-on-close
-    size="600px"
-    :before-close="onFormClose"
-    modal-class="prompt-add_drawer"
-  >
-    <el-form
-      ref="termFormRef"
-      :model="pageForm"
-      label-width="180px"
-      label-position="top"
-      :rules="rules"
-      class="form-content_error"
-      @submit.prevent
-    >
+  <el-drawer v-model="dialogFormVisible" :title="dialogTitle" destroy-on-close size="600px" :before-close="onFormClose"
+    modal-class="prompt-add_drawer">
+    <el-form ref="termFormRef" :model="pageForm" label-width="180px" label-position="top" :rules="rules"
+      class="form-content_error" @submit.prevent>
       <el-form-item prop="name" :label="t('prompt.prompt_word_name')">
-        <el-input
-          v-model="pageForm.name"
-          :placeholder="
-            $t('datasource.please_enter') + $t('common.empty') + $t('prompt.prompt_word_name')
-          "
-          autocomplete="off"
-          maxlength="50"
-          clearable
-        />
+        <el-input v-model="pageForm.name" :placeholder="$t('datasource.please_enter') + $t('common.empty') + $t('prompt.prompt_word_name')
+          " autocomplete="off" maxlength="50" clearable />
       </el-form-item>
       <el-form-item prop="prompt" :label="t('prompt.prompt_word_content')">
-        <el-input
-          v-model="pageForm.prompt"
-          :placeholder="$t('prompt.replaced_with')"
-          :autosize="{ minRows: 3.636, maxRows: 11.09 }"
-          type="textarea"
-        />
+        <el-input v-model="pageForm.prompt" :placeholder="$t('prompt.replaced_with')"
+          :autosize="{ minRows: 3.636, maxRows: 11.09 }" type="textarea" />
         <div class="tips">
           {{ t('prompt.loss_exercise_caution') }}
         </div>
       </el-form-item>
 
-      <el-form-item
-        class="is-required"
-        :class="!pageForm.specific_ds && 'no-error'"
-        prop="datasource_ids"
-        :label="t('training.effective_data_sources')"
-      >
+      <el-form-item class="is-required" :class="!pageForm.specific_ds && 'no-error'" prop="datasource_ids"
+        :label="t('training.effective_data_sources')">
         <el-radio-group v-model="pageForm.specific_ds">
           <el-radio :value="false">{{ $t('training.all_data_sources') }}</el-radio>
           <el-radio :value="true">{{ $t('training.partial_data_sources') }}</el-radio>
         </el-radio-group>
-        <el-select
-          v-if="pageForm.specific_ds"
-          v-model="pageForm.datasource_ids"
-          multiple
-          filterable
+        <el-select v-if="pageForm.specific_ds" v-model="pageForm.datasource_ids" multiple filterable
           :placeholder="$t('datasource.Please_select') + $t('common.empty') + $t('ds.title')"
-          style="width: 100%; margin-top: 8px"
-          @change="handleChange"
-        >
+          style="width: 100%; margin-top: 8px" @change="handleChange">
           <el-option v-for="item in options" :key="item.id" :label="item.name" :value="item.id" />
         </el-select>
       </el-form-item>
@@ -706,14 +715,8 @@ const drawerMainClose = () => {
       </div>
     </template>
   </el-drawer>
-  <el-drawer
-    v-model="rowInfoDialog"
-    :title="$t('menu.Details')"
-    destroy-on-close
-    size="600px"
-    :before-close="onRowFormClose"
-    modal-class="prompt-term_drawer"
-  >
+  <el-drawer v-model="rowInfoDialog" :title="$t('menu.Details')" destroy-on-close size="600px"
+    :before-close="onRowFormClose" modal-class="prompt-term_drawer">
     <el-form label-width="180px" label-position="top" class="form-content_error" @submit.prevent>
       <el-form-item :label="t('prompt.prompt_word_name')">
         <div class="content">
@@ -743,17 +746,14 @@ const drawerMainClose = () => {
       </el-form-item>
     </el-form>
   </el-drawer>
-  <drawer-main
-    ref="drawerMainRef"
-    :filter-options="filterOption"
-    @trigger-filter="searchCondition"
-  />
+  <drawer-main ref="drawerMainRef" :filter-options="filterOption" @trigger-filter="searchCondition" />
 </template>
 
 <style lang="less" scoped>
 .no-margin {
   margin: 0;
 }
+
 .prompt {
   height: 100%;
   position: relative;
@@ -799,12 +799,14 @@ const drawerMainClose = () => {
       .ed-button:not(.is-active) {
         color: #1f2329;
       }
+
       .ed-button.is-text {
         height: 24px;
         padding: 0 8px;
         line-height: 22px;
       }
-      .ed-button + .ed-button {
+
+      .ed-button+.ed-button {
         margin-left: 4px;
       }
     }
@@ -831,17 +833,20 @@ const drawerMainClose = () => {
         align-items: center;
         min-height: 24px;
       }
+
       .notes-in_table {
         max-width: 100%;
         display: -webkit-box;
         max-height: 44px;
         -webkit-box-orient: vertical;
-        -webkit-line-clamp: 2; /* 限制行数为3 */
+        -webkit-line-clamp: 2;
+        /* 限制行数为3 */
         overflow: hidden;
         text-overflow: ellipsis;
         word-break: break-word;
         white-space: pre-wrap;
       }
+
       .ed-icon {
         color: #646a73;
       }
@@ -860,12 +865,15 @@ const drawerMainClose = () => {
       }
 
       .field-comment {
-        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        gap: 8px;
+        min-height: 32px;
 
         .ed-icon {
           position: relative;
           cursor: pointer;
-          margin-top: 4px;
 
           &::after {
             content: '';
@@ -889,9 +897,6 @@ const drawerMainClose = () => {
           &.not-allow {
             cursor: not-allowed;
           }
-        }
-        .ed-icon + .ed-icon {
-          margin-left: 12px;
         }
       }
 
@@ -985,12 +990,15 @@ const drawerMainClose = () => {
     line-height: 22px;
     color: #ff8800;
   }
+
   .no-error.no-error {
     .ed-form-item__error {
       display: none;
     }
+
     margin-bottom: 16px;
   }
+
   .ed-textarea__inner {
     line-height: 22px;
   }
