@@ -148,7 +148,6 @@ const exportExcel = () => {
         document.body.removeChild(link)
       })
       .catch(async (error) => {
-        // 错误处理：尝试解析错误响应并显示错误消息
         if (error.response) {
           try {
             let text = await error.response.data.text()
@@ -221,9 +220,8 @@ const deleteHandler = (row: any) => {
     })
   })
 }
-// console  文字
 const toggleEnabled = (row: any) => {
-  const newStatus = row.enabled ? t('dashboard.enabled') : t('dashboard.disabled')
+  const newStatus = row.enabled ? t('prompt.enabled') : t('prompt.disabled')
   promptApi.addandputPrompt({
     ...row,
     enabled: row.enabled
@@ -280,8 +278,8 @@ const handleToggleRowSelection = (check: boolean = true) => {
   }
   toggleRowLoading.value = false
   // 更新全选复选框状态
-  checkAll.value = i === arr.length // 如果当前页所有行都在选中列表中，则全选
-  isIndeterminate.value = !(i === 0 || i === arr.length) // 部分选中时为半选状态
+  checkAll.value = i === arr.length 
+  isIndeterminate.value = !(i === 0 || i === arr.length) 
 }
 
 
@@ -536,13 +534,13 @@ const drawerMainClose = () => {
             {{ $t('prompt.ask_sql') }}真 sql提示词
           </el-button> -->
         <el-button :class="[currentType === 'chart' && 'is-active']" text @click="typeChange('chart')">
-          数据绘图
+          {{ $t('prompt.data_chart') }}
         </el-button>
         <el-button :class="[currentType === 'analysis' && 'is-active']" text @click="typeChange('analysis')">
-          数据分析
+          {{ $t('prompt.data_analysis') }}
         </el-button>
         <el-button :class="[currentType === 'predict' && 'is-active']" text @click="typeChange('predict')">
-          数据预测
+          {{ $t('prompt.data_prediction') }}
         </el-button>
 
 
@@ -622,8 +620,8 @@ const drawerMainClose = () => {
                     <IconOpeDelete></IconOpeDelete>
                   </el-icon>
                 </el-tooltip>
-                <!-- console 启用/禁用文本 -->
-                <el-tooltip :offset="14" effect="dark" :content="scope.row.enabled ? $t('dashboard.enabled') : $t('dashboard.disabled')" placement="top">
+                <!--  启用/禁用文本 -->
+                <el-tooltip :offset="14" effect="dark" :content="scope.row.enabled ? $t('prompt.enabled') : $t('prompt.disabled')" placement="top">
                 <el-switch
                   v-model="scope.row.enabled"
                   @click.stop="toggleEnabled(scope.row)"

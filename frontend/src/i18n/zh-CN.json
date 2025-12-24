@@ -14,6 +14,7 @@
     "no_prompt_words": "暂无提示词",
     "customize_prompt_words": "自定义提示词",
     "ask_sql": "问数 SQL",
+    "data_chart": "数据绘图",
     "data_analysis": "数据分析",
     "data_prediction": "数据预测",
     "add_prompt_word": "添加提示词",
@@ -28,7 +29,12 @@
     "export_hint": "是否导出全部{type}提示词？",
     "prompt_word_name_de": "是否删除提示词：{msg}？",
     "disable_field": "禁用字段",
-    "to_disable_it": "该字段已配置表关联关系，若禁用后，关联关系将失效，确定禁用?"
+    "to_disable_it": "该字段已配置表关联关系，若禁用后，关联关系将失效，确定禁用?",
+    
+    "prompt_word_name_success":"提示词{msg}成功",
+    "enabled": "启用",
+    "disabled": "禁用",
+    "prompt_word_name_failed":"提示词{msg}失败"
   },
   "training": {
     "effective_data_sources": "生效数据源",

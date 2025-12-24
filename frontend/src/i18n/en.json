@@ -14,6 +14,7 @@
     "no_prompt_words": "No prompt words",
     "customize_prompt_words": "Customize prompt words",
     "ask_sql": "Ask SQL",
+    "data_chart": "Data Chart",
     "data_analysis": "Data Analysis",
     "data_prediction": "Data Prediction",
     "add_prompt_word": "Add prompt word",
@@ -28,7 +29,11 @@
     "export_hint": "Export all {type} prompts?",
     "prompt_word_name_de": "Do you want to delete the prompt word: {msg}?",
     "disable_field": "Disable Field",
-    "to_disable_it": "This field has a configured table relationship. If disabled, the relationship will be invalid. Are you sure you want to disable it?"
+    "to_disable_it": "This field has a configured table relationship. If disabled, the relationship will be invalid. Are you sure you want to disable it?",
+    "enabled": "Enabled",
+    "disabled": "Disabled",
+    "prompt_word_name_success":"Prompt word {msg} success",
+    "prompt_word_name_failed":"Prompt word {msg} failed"
   },
   "training": {
     "effective_data_sources": "Effective data sources",

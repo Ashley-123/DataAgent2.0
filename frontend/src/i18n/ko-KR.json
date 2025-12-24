@@ -14,6 +14,7 @@
     "no_prompt_words": "프롬프트가 없습니다",
     "customize_prompt_words": "사용자 정의 프롬프트",
     "ask_sql": "데이터 조회 SQL",
+    "data_chart": "데이터 그래프",
     "data_analysis": "데이터 분석",
     "data_prediction": "데이터 예측",
     "add_prompt_word": "프롬프트 추가",
@@ -28,7 +29,12 @@
     "export_hint": "모든 {type} 프롬프트를 내보내시겠습니까?",
     "prompt_word_name_de": "프롬프트를 삭제하시겠습니까: {msg}?",
     "disable_field": "필드 비활성화",
-    "to_disable_it": "이 필드에는 테이블 관계가 설정되어 있습니다. 비활성화하면 관계가 유효하지 않게 됩니다. 비활성화하시겠습니까?"
+    "to_disable_it": "이 필드에는 테이블 관계가 설정되어 있습니다. 비활성화하면 관계가 유효하지 않게 됩니다. 비활성화하시겠습니까?",
+    "enabled": "활성화",
+    "disabled": "비활성화",
+    "prompt_word_name_success":"프롬프트{msg}성공",
+    "prompt_word_name_failed":"프롬프트{msg}실패"
+
   },
   "training": {
     "effective_data_sources": "유효한 데이터 소스",

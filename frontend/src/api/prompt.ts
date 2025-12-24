@@ -14,8 +14,8 @@ export const promptApi = {
     return request.get(`/system/template-prompt/${id}/enable/${TF}`)
   },
   
-  acquirePromptbyId:(id:number)=>{
-    return request.get(`/system/template-prompt/${id}`)
+  acquirePromptbyName:(name:string)=>{
+    return request.get(`/system/template-prompt/name/${name}`)
   },
 
 
