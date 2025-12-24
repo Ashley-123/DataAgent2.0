@@ -11,6 +11,7 @@ import ICON_COLUMN from '@/assets/svg/chart/icon_dashboard_outlined.svg'
 import ICON_LINE from '@/assets/svg/chart/icon_chart-line.svg'
 import ICON_PIE from '@/assets/svg/chart/icon_pie_outlined.svg'
 import ICON_TABLE from '@/assets/svg/chart/icon_form_outlined.svg'
+import ICON_SCATTER from '@/assets/svg/chart/icon_scatter.svg'
 import icon_sql_outlined from '@/assets/svg/icon_sql_outlined.svg'
 import icon_export_outlined from '@/assets/svg/icon_export_outlined.svg'
 import icon_file_image_colorful from '@/assets/svg/icon_file-image_colorful.svg'
@@ -162,6 +163,11 @@ const chartTypeList = computed(() => {
           value: 'line',
           name: t('chat.chart_type.line'),
           icon: ICON_LINE,
+        })
+        _list.push({
+          value: 'scatter',
+          name: t('chat.chart_type.scatter'),
+          icon: ICON_SCATTER,
         })
         break
       case 'pie':

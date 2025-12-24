@@ -158,8 +158,8 @@ mimetypes.add_type("image/jpeg", ".jpg")
 
 
 
-# static_dir = "/opt/sqlbot/frontend/dist" if os.path.exists("/opt/sqlbot/frontend/dist") else "../frontend/dist"
-# app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
+static_dir = "/opt/sqlbot/frontend/dist" if os.path.exists("/opt/sqlbot/frontend/dist") else "../frontend/dist"
+app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
 #如果是需要启动前端dist，取消上面两行注释即可
 
 
